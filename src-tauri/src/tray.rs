@@ -1,3 +1,6 @@
+// 系统托盘功能仅在桌面平台可用
+#![cfg(not(any(target_os = "android", target_os = "ios")))]
+
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},

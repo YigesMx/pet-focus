@@ -3,6 +3,7 @@ mod db;
 pub mod entities;
 mod models;
 mod services;
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 mod tray;
 mod webserver;
 
@@ -50,7 +51,8 @@ pub fn run() {
                 Ok(db) => {
                     app.manage(AppState::new(handle.clone(), db));
                     
-                    // 创建系统托盘
+                    // 创建系统托盘（仅桌面平台）
+                    #[cfg(not(any(target_os = "android", target_os = "ios")))]
                     if let Err(e) = tray::create_tray(&handle) {
                         eprintln!("Failed to create system tray: {}", e);
                     }
@@ -62,8 +64,18 @@ pub fn run() {
         })
         .on_window_event(|window, event| match event {
             tauri::WindowEvent::CloseRequested { api, .. } => {
-                window.hide().unwrap();
-                api.prevent_close();
+                // 桌面平台：隐藏窗口而不是关闭
+                #[cfg(not(any(target_os = "android", target_os = "ios")))]
+                {
+                    window.hide().unwrap();
+                    api.prevent_close();
+                }
+                // 移动平台：允许正常关闭
+                #[cfg(any(target_os = "android", target_os = "ios"))]
+                {
+                    // 不阻止关闭，让应用正常关闭
+                    let _ = (window, api);
+                }
             }
             _ => {}
         })
