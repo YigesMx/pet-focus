@@ -4,10 +4,12 @@
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Manager, Wry,
+    AppHandle, Emitter, Manager, Wry,
 };
 
 use crate::AppState;
+
+const WEBSERVER_STATUS_CHANGED_EVENT: &str = "webserver-status-changed";
 
 /// 创建系统托盘
 pub fn create_tray(app: &AppHandle<Wry>) -> tauri::Result<()> {
@@ -57,6 +59,8 @@ pub fn create_tray(app: &AppHandle<Wry>) -> tauri::Result<()> {
                                     println!("Web server started successfully");
                                     // 更新托盘菜单
                                     let _ = update_tray_menu(&app_handle, true);
+                                    // 通知前端状态变化
+                                    let _ = app_handle.emit(WEBSERVER_STATUS_CHANGED_EVENT, true);
                                 }
                                 Err(e) => {
                                     eprintln!("Failed to start web server: {}", e);
@@ -74,6 +78,8 @@ pub fn create_tray(app: &AppHandle<Wry>) -> tauri::Result<()> {
                                     println!("Web server stopped successfully");
                                     // 更新托盘菜单
                                     let _ = update_tray_menu(&app_handle, false);
+                                    // 通知前端状态变化
+                                    let _ = app_handle.emit(WEBSERVER_STATUS_CHANGED_EVENT, false);
                                 }
                                 Err(e) => {
                                     eprintln!("Failed to stop web server: {}", e);
@@ -139,7 +145,12 @@ fn build_tray_menu(app: &AppHandle<Wry>, server_running: bool) -> tauri::Result<
     Ok(menu)
 }
 
-/// 更新托盘菜单
+/// 更新托盘菜单（公开接口，供其他模块调用）
+pub fn update_tray_menu_from_app(app: &AppHandle<Wry>, server_running: bool) -> tauri::Result<()> {
+    update_tray_menu(app, server_running)
+}
+
+/// 更新托盘菜单（内部实现）
 fn update_tray_menu(app: &AppHandle<Wry>, server_running: bool) -> tauri::Result<()> {
     if let Some(tray) = app.tray_by_id("main") {
         let new_menu = build_tray_menu(app, server_running)?;

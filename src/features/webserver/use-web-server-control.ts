@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { listen } from "@tauri-apps/api/event";
 
 import {
   getWebServerStatus,
@@ -50,6 +51,17 @@ export function useWebServerControl() {
 
   useEffect(() => {
     void refreshServerStatus();
+
+    // 监听来自托盘菜单的状态变化事件
+    const unlisten = listen<boolean>("webserver-status-changed", (event) => {
+      console.log("Received webserver-status-changed event:", event.payload);
+      // 刷新服务器状态
+      void refreshServerStatus();
+    });
+
+    return () => {
+      void unlisten.then((fn) => fn());
+    };
   }, [refreshServerStatus]);
 
   const handleToggleApi = useCallback(

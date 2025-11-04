@@ -1,5 +1,5 @@
 use serde::Deserialize;
-use tauri::State;
+use tauri::{Emitter, State};
 
 use super::{
     models::todo::Todo,
@@ -8,6 +8,9 @@ use super::{
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 use super::webserver::WebServerStatus;
 use crate::AppState;
+
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+const WEBSERVER_STATUS_CHANGED_EVENT: &str = "webserver-status-changed";
 
 #[derive(Debug, Default, Deserialize)]
 pub struct CreateTodoPayload {
@@ -60,21 +63,39 @@ pub async fn delete_todo(state: State<'_, AppState>, id: i32) -> Result<(), Stri
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 #[tauri::command]
 pub async fn start_web_server(state: State<'_, AppState>) -> Result<WebServerStatus, String> {
-    state
+    let result = state
         .web_server()
         .start(state.db().clone(), state.app_handle(), None)
         .await
-        .map_err(|err| err.to_string())
+        .map_err(|err| err.to_string());
+    
+    if result.is_ok() {
+        // 通知托盘菜单更新
+        let _ = state.app_handle().emit(WEBSERVER_STATUS_CHANGED_EVENT, true);
+        // 更新托盘菜单
+        let _ = super::tray::update_tray_menu_from_app(&state.app_handle(), true);
+    }
+    
+    result
 }
 
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 #[tauri::command]
 pub async fn stop_web_server(state: State<'_, AppState>) -> Result<WebServerStatus, String> {
-    state
+    let result = state
         .web_server()
         .stop()
         .await
-        .map_err(|err| err.to_string())
+        .map_err(|err| err.to_string());
+    
+    if result.is_ok() {
+        // 通知托盘菜单更新
+        let _ = state.app_handle().emit(WEBSERVER_STATUS_CHANGED_EVENT, false);
+        // 更新托盘菜单
+        let _ = super::tray::update_tray_menu_from_app(&state.app_handle(), false);
+    }
+    
+    result
 }
 
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
