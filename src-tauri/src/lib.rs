@@ -3,6 +3,7 @@ mod db;
 pub mod entities;
 mod models;
 mod services;
+mod tray;
 mod webserver;
 
 use sea_orm::DatabaseConnection;
@@ -48,10 +49,23 @@ pub fn run() {
             match tauri::async_runtime::block_on(db::init_db(&handle)) {
                 Ok(db) => {
                     app.manage(AppState::new(handle.clone(), db));
+                    
+                    // 创建系统托盘
+                    if let Err(e) = tray::create_tray(&handle) {
+                        eprintln!("Failed to create system tray: {}", e);
+                    }
+                    
                     Ok(())
                 }
                 Err(err) => Err(err.into()),
             }
+        })
+        .on_window_event(|window, event| match event {
+            tauri::WindowEvent::CloseRequested { api, .. } => {
+                window.hide().unwrap();
+                api.prevent_close();
+            }
+            _ => {}
         })
         .invoke_handler(tauri::generate_handler![
             commands::list_todos,

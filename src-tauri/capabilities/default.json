@@ -5,6 +5,20 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-close",
+    "core:window:allow-set-focus",
+    "core:app:allow-app-show",
+    "core:app:allow-app-hide",
+    "core:tray:allow-new",
+    "core:tray:allow-set-icon",
+    "core:tray:allow-set-menu",
+    "core:tray:allow-set-tooltip",
+    "core:menu:allow-new",
+    "core:menu:allow-append",
+    "core:menu:allow-prepend",
+    "core:menu:allow-insert",
     "opener:default"
   ]
 }
