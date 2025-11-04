@@ -1,16 +1,22 @@
-mod commands;
-mod db;
-pub mod entities;
-mod models;
-mod services;
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
-mod tray;
-mod webserver;
+// 库模块声明 - 所有业务逻辑模块都在 lib 子目录下
+mod lib {
+    pub mod commands;
+    pub mod db;
+    pub mod entities;
+    pub mod models;
+    pub mod services;
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    pub mod tray;
+    pub mod webserver;
+}
+
+// 重新导出公共 API
+pub use lib::entities;
 
 use sea_orm::DatabaseConnection;
 use tauri::{AppHandle, Manager, Wry};
 
-use webserver::WebServerManager;
+use lib::webserver::WebServerManager;
 
 pub struct AppState {
     app_handle: AppHandle<Wry>,
@@ -47,13 +53,13 @@ pub fn run() {
         .setup(|app| {
             let handle = app.handle();
 
-            match tauri::async_runtime::block_on(db::init_db(&handle)) {
+            match tauri::async_runtime::block_on(lib::db::init_db(&handle)) {
                 Ok(db) => {
                     app.manage(AppState::new(handle.clone(), db));
                     
                     // 创建系统托盘（仅桌面平台）
                     #[cfg(not(any(target_os = "android", target_os = "ios")))]
-                    if let Err(e) = tray::create_tray(&handle) {
+                    if let Err(e) = lib::tray::create_tray(&handle) {
                         eprintln!("Failed to create system tray: {}", e);
                     }
                     
@@ -80,13 +86,13 @@ pub fn run() {
             _ => {}
         })
         .invoke_handler(tauri::generate_handler![
-            commands::list_todos,
-            commands::create_todo,
-            commands::update_todo,
-            commands::delete_todo,
-            commands::start_web_server,
-            commands::stop_web_server,
-            commands::web_server_status
+            lib::commands::list_todos,
+            lib::commands::create_todo,
+            lib::commands::update_todo,
+            lib::commands::delete_todo,
+            lib::commands::start_web_server,
+            lib::commands::stop_web_server,
+            lib::commands::web_server_status
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

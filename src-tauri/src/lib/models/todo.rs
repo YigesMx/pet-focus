@@ -1,4 +1,4 @@
-use crate::entities::todo;
+use super::super::entities::todo;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

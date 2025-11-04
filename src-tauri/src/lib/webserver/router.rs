@@ -8,7 +8,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{models::todo::Todo, services::todo_service};
+use super::super::{models::todo::Todo, services::todo_service};
 
 use super::context::ApiContext;
 

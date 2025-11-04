@@ -5,7 +5,7 @@ use directories::ProjectDirs;
 use sea_orm::{ConnectionTrait, Database, DatabaseConnection, DbBackend, Schema, Statement};
 use tauri::AppHandle;
 
-use crate::entities::todo;
+use super::entities::todo;
 
 const DB_FILENAME: &str = "pet_focus.sqlite";
 const QUALIFIER: &str = "site";

@@ -1,12 +1,12 @@
 use serde::Deserialize;
 use tauri::State;
 
-use crate::{
+use super::{
     models::todo::Todo,
     services::todo_service,
     webserver::WebServerStatus,
-    AppState,
 };
+use crate::AppState;
 
 #[derive(Debug, Default, Deserialize)]
 pub struct CreateTodoPayload {
