@@ -2,21 +2,36 @@ use sea_orm::DatabaseConnection;
 use serde_json::json;
 use tauri::{AppHandle, Emitter, Wry};
 
+use super::connection::ConnectionManager;
+
 const TODO_CHANGE_EVENT: &str = "todo-data-updated";
 
 #[derive(Clone)]
 pub(super) struct ApiContext {
     db: DatabaseConnection,
     app_handle: AppHandle<Wry>,
+    connection_manager: ConnectionManager,
 }
 
 impl ApiContext {
-    pub(super) fn new(db: DatabaseConnection, app_handle: AppHandle<Wry>) -> Self {
-        Self { db, app_handle }
+    pub(super) fn new(
+        db: DatabaseConnection,
+        app_handle: AppHandle<Wry>,
+        connection_manager: ConnectionManager,
+    ) -> Self {
+        Self {
+            db,
+            app_handle,
+            connection_manager,
+        }
     }
 
     pub(super) fn db(&self) -> &DatabaseConnection {
         &self.db
+    }
+
+    pub(super) fn connection_manager(&self) -> &ConnectionManager {
+        &self.connection_manager
     }
 
     pub(super) fn notify_change(&self, action: &'static str, todo_id: Option<i32>) {

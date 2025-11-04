@@ -19,7 +19,9 @@ use tauri::{
 };
 
 use super::{
+    connection::ConnectionManager,
     context::ApiContext,
+    message::WsMessage,
     router::build_router,
     types::{WebServerConfig, WebServerStatus},
 };
@@ -64,7 +66,24 @@ impl WebServerManager {
             .context("failed to read bound address for web server")?;
         let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
 
-        let router = build_router(ApiContext::new(db, app_handle));
+        // 创建连接管理器
+        let conn_mgr = ConnectionManager::new();
+
+        // 启动定时广播任务
+        let conn_mgr_clone = conn_mgr.clone();
+        let broadcast_task: JoinHandle<()> = async_runtime::spawn(async move {
+            let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(5));
+            loop {
+                interval.tick().await;
+                let event = WsMessage::event(
+                    "placeholder".to_string(),
+                    serde_json::json!({"timestamp": chrono::Utc::now().to_rfc3339()}),
+                );
+                conn_mgr_clone.broadcast_to_channel(&"placeholder".to_string(), event).await;
+            }
+        });
+
+        let router = build_router(ApiContext::new(db, app_handle, conn_mgr));
         let server = axum::serve(listener, router).with_graceful_shutdown(async move {
             let _ = shutdown_rx.await;
         });
@@ -83,6 +102,7 @@ impl WebServerManager {
         *guard = Some(WebServerHandle {
             shutdown: Some(shutdown_tx),
             join,
+            broadcast_task,
             addr: actual_addr,
             alive: alive_flag,
         });
@@ -100,6 +120,8 @@ impl WebServerManager {
             if let Some(shutdown) = handle.shutdown.take() {
                 let _ = shutdown.send(());
             }
+
+            handle.broadcast_task.abort();
 
             if let Err(error) = handle.join.await {
                 eprintln!("failed to join web server task: {error}");
@@ -126,6 +148,7 @@ impl WebServerManager {
 struct WebServerHandle {
     shutdown: Option<oneshot::Sender<()>>,
     join: JoinHandle<()>,
+    broadcast_task: JoinHandle<()>,
     addr: SocketAddr,
     alive: Arc<AtomicBool>,
 }

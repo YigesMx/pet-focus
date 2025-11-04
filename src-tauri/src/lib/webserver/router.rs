@@ -1,140 +1,97 @@
-use anyhow::Error;
+use std::sync::atomic::{AtomicU64, Ordering};
+
 use axum::{
-    extract::{Path, State},
-    http::StatusCode,
-    response::{IntoResponse, Response},
-    routing::get,
-    Json, Router,
+    extract::{
+        ws::{Message, WebSocket, WebSocketUpgrade},
+        State,
+    },
+    response::IntoResponse,
+    routing::any,
+    Router,
 };
-use serde::{Deserialize, Serialize};
+use futures::{sink::SinkExt, stream::StreamExt};
 
-use super::super::{models::todo::Todo, services::todo_service};
+use super::{context::ApiContext, handler::handle_call, message::WsMessage};
 
-use super::context::ApiContext;
+static CONN_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 pub(super) fn build_router(state: ApiContext) -> Router {
     Router::new()
-        .route("/health", get(health))
-        .route("/todos", get(list_todos).post(create_todo))
-        .route(
-            "/todos/{id}",
-            get(get_todo).patch(update_todo).delete(delete_todo),
-        )
+        .route("/ws", any(ws_handler))
         .with_state(state)
 }
 
-#[derive(Debug, Deserialize)]
-struct CreateTodoRequest {
-    title: Option<String>,
+/// WebSocket 升级处理器
+async fn ws_handler(ws: WebSocketUpgrade, State(ctx): State<ApiContext>) -> impl IntoResponse {
+    ws.on_upgrade(move |socket| handle_socket(socket, ctx))
 }
 
-#[derive(Debug, Deserialize)]
-struct UpdateTodoRequest {
-    title: Option<String>,
-    completed: Option<bool>,
-}
+/// 处理 WebSocket 连接
+async fn handle_socket(socket: WebSocket, ctx: ApiContext) {
+    let (mut sender, mut receiver) = socket.split();
 
-#[derive(Debug, Serialize)]
-struct ErrorBody {
-    message: String,
-}
+    // 注册连接
+    let conn_mgr = ctx.connection_manager();
+    
+    // 生成唯一连接 ID
+    let conn_id = format!("conn-{}", CONN_COUNTER.fetch_add(1, Ordering::SeqCst));
+    
+    // 创建接收通道
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+    
+    // 注册连接
+    conn_mgr.register(conn_id.clone(), tx).await;
+    println!("WebSocket connection registered: {}", conn_id);
 
-#[derive(Debug)]
-struct ApiError {
-    status: StatusCode,
-    message: String,
-}
-
-impl ApiError {
-    fn new(status: StatusCode, message: impl Into<String>) -> Self {
-        Self {
-            status,
-            message: message.into(),
+    // 发送任务：从通道接收消息并发送到 WebSocket
+    let mut send_task = tokio::spawn(async move {
+        while let Some(msg) = rx.recv().await {
+            if sender.send(msg).await.is_err() {
+                break;
+            }
         }
-    }
+    });
 
-    fn from_service_error(err: Error) -> Self {
-        let message = err.to_string();
-        if message.to_ascii_lowercase().contains("not found") {
-            Self::new(StatusCode::NOT_FOUND, message)
-        } else {
-            eprintln!("web server internal error: {message}");
-            Self::new(StatusCode::INTERNAL_SERVER_ERROR, "internal server error")
+    // 接收任务
+    let conn_id_clone = conn_id.clone();
+    let conn_mgr_clone = conn_mgr.clone();
+    let db = ctx.db().clone();
+    let ctx_clone = ctx.clone();
+    
+    let mut recv_task = tokio::spawn(async move {
+        while let Some(Ok(msg)) = receiver.next().await {
+            if let Message::Text(text) = msg {
+                match serde_json::from_str::<WsMessage>(&text) {
+                    Ok(WsMessage::Call { body: call }) => {
+                        handle_call(&conn_id_clone, call, &db, &conn_mgr_clone, &ctx_clone).await;
+                    }
+                    Ok(WsMessage::Listen { body: listen }) => {
+                        let channel = listen.channel;
+                        conn_mgr_clone
+                            .subscribe(&conn_id_clone, channel.clone())
+                            .await;
+                        println!("Connection {} subscribed to {}", conn_id_clone, channel);
+                    }
+                    Ok(_) => {
+                        eprintln!("Unexpected message type from client");
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to parse message: {}", e);
+                    }
+                }
+            } else if let Message::Close(_) = msg {
+                break;
+            }
         }
-    }
-}
+    });
 
-impl IntoResponse for ApiError {
-    fn into_response(self) -> Response {
-        let status = self.status;
-        let body = Json(ErrorBody { message: self.message });
-        (status, body).into_response()
-    }
-}
-
-async fn health() -> impl IntoResponse {
-    #[derive(Serialize)]
-    struct HealthResponse {
-        status: &'static str,
+    // 等待任意任务完成
+    tokio::select! {
+        _ = (&mut send_task) => recv_task.abort(),
+        _ = (&mut recv_task) => send_task.abort(),
     }
 
-    (StatusCode::OK, Json(HealthResponse { status: "ok" }))
-}
-
-async fn list_todos(State(ctx): State<ApiContext>) -> Result<Json<Vec<Todo>>, ApiError> {
-    todo_service::list_todos(ctx.db())
-        .await
-        .map(Json)
-        .map_err(ApiError::from_service_error)
-}
-
-async fn create_todo(
-    State(ctx): State<ApiContext>,
-    Json(payload): Json<CreateTodoRequest>,
-) -> Result<(StatusCode, Json<Todo>), ApiError> {
-    todo_service::create_todo(ctx.db(), payload.title)
-        .await
-        .map(|todo| {
-            let todo_id = todo.id;
-            ctx.notify_change("created", Some(todo_id));
-            (StatusCode::CREATED, Json(todo))
-        })
-        .map_err(ApiError::from_service_error)
-}
-
-async fn get_todo(
-    Path(id): Path<i32>,
-    State(ctx): State<ApiContext>,
-) -> Result<Json<Todo>, ApiError> {
-    todo_service::get_todo(ctx.db(), id)
-        .await
-        .map(Json)
-        .map_err(ApiError::from_service_error)
-}
-
-async fn update_todo(
-    Path(id): Path<i32>,
-    State(ctx): State<ApiContext>,
-    Json(payload): Json<UpdateTodoRequest>,
-) -> Result<Json<Todo>, ApiError> {
-    todo_service::update_todo(ctx.db(), id, payload.title, payload.completed)
-        .await
-        .map(|todo| {
-            ctx.notify_change("updated", Some(id));
-            Json(todo)
-        })
-        .map_err(ApiError::from_service_error)
-}
-
-async fn delete_todo(
-    Path(id): Path<i32>,
-    State(ctx): State<ApiContext>,
-) -> Result<StatusCode, ApiError> {
-    todo_service::delete_todo(ctx.db(), id)
-        .await
-        .map(|_| {
-            ctx.notify_change("deleted", Some(id));
-            StatusCode::NO_CONTENT
-        })
-        .map_err(ApiError::from_service_error)
+    // 清理连接
+    conn_mgr.unregister(&conn_id).await;
+    println!("WebSocket connection closed: {}", conn_id);
 }
