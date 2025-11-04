@@ -7,14 +7,30 @@ use tauri::{
     AppHandle, Emitter, Manager, Wry,
 };
 
-use crate::AppState;
+use crate::{AppState, lib::services::setting_service::SettingService};
 
 const WEBSERVER_STATUS_CHANGED_EVENT: &str = "webserver-status-changed";
 
 /// 创建系统托盘
 pub fn create_tray(app: &AppHandle<Wry>) -> tauri::Result<()> {
+    // 从数据库读取初始状态
+    let app_handle = app.clone();
+    let initial_server_running = tauri::async_runtime::block_on(async move {
+        if let Some(state) = app_handle.try_state::<AppState>() {
+            match SettingService::get_bool(state.db(), "webserver.auto_start", false).await {
+                Ok(auto_start) => auto_start,
+                Err(e) => {
+                    eprintln!("Failed to read auto-start setting for tray: {}", e);
+                    false
+                }
+            }
+        } else {
+            false
+        }
+    });
+
     // 创建初始菜单
-    let menu = build_tray_menu(app, false)?;
+    let menu = build_tray_menu(app, initial_server_running)?;
 
     let _tray = TrayIconBuilder::with_id("main")
         .icon(app.default_window_icon().unwrap().clone())
@@ -57,6 +73,8 @@ pub fn create_tray(app: &AppHandle<Wry>) -> tauri::Result<()> {
                             {
                                 Ok(_) => {
                                     println!("Web server started successfully");
+                                    // 保存设置
+                                    let _ = SettingService::set_bool(state.db(), "webserver.auto_start", true).await;
                                     // 更新托盘菜单
                                     let _ = update_tray_menu(&app_handle, true);
                                     // 通知前端状态变化
@@ -76,6 +94,8 @@ pub fn create_tray(app: &AppHandle<Wry>) -> tauri::Result<()> {
                             match state.web_server().stop().await {
                                 Ok(_) => {
                                     println!("Web server stopped successfully");
+                                    // 保存设置
+                                    let _ = SettingService::set_bool(state.db(), "webserver.auto_start", false).await;
                                     // 更新托盘菜单
                                     let _ = update_tray_menu(&app_handle, false);
                                     // 通知前端状态变化

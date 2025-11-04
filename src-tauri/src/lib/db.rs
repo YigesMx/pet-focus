@@ -5,7 +5,7 @@ use directories::ProjectDirs;
 use sea_orm::{ConnectionTrait, Database, DatabaseConnection, DbBackend, Schema, Statement};
 use tauri::AppHandle;
 
-use super::entities::todo;
+use super::entities::{setting, todo};
 
 const DB_FILENAME: &str = "pet_focus.sqlite";
 const QUALIFIER: &str = "site";
@@ -50,12 +50,21 @@ async fn run_migrations(db: &DatabaseConnection) -> Result<()> {
     let backend = db.get_database_backend();
     let schema = Schema::new(backend);
 
+    // 创建 todos 表
     let mut create_todos = schema.create_table_from_entity(todo::Entity);
     create_todos.if_not_exists();
 
     db.execute(backend.build(&create_todos))
         .await
         .context("failed to create todos table")?;
+
+    // 创建 settings 表
+    let mut create_settings = schema.create_table_from_entity(setting::Entity);
+    create_settings.if_not_exists();
+
+    db.execute(backend.build(&create_settings))
+        .await
+        .context("failed to create settings table")?;
 
     Ok(())
 }

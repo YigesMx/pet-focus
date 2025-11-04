@@ -3,7 +3,7 @@ use tauri::{Emitter, State};
 
 use super::{
     models::todo::Todo,
-    services::todo_service,
+    services::{setting_service::SettingService, todo_service},
 };
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 use super::webserver::WebServerStatus;
@@ -70,6 +70,9 @@ pub async fn start_web_server(state: State<'_, AppState>) -> Result<WebServerSta
         .map_err(|err| err.to_string());
     
     if result.is_ok() {
+        // 保存设置
+        let _ = SettingService::set_bool(state.db(), "webserver.auto_start", true).await;
+        
         // 通知托盘菜单更新
         let _ = state.app_handle().emit(WEBSERVER_STATUS_CHANGED_EVENT, true);
         // 更新托盘菜单
@@ -89,6 +92,9 @@ pub async fn stop_web_server(state: State<'_, AppState>) -> Result<WebServerStat
         .map_err(|err| err.to_string());
     
     if result.is_ok() {
+        // 保存设置
+        let _ = SettingService::set_bool(state.db(), "webserver.auto_start", false).await;
+        
         // 通知托盘菜单更新
         let _ = state.app_handle().emit(WEBSERVER_STATUS_CHANGED_EVENT, false);
         // 更新托盘菜单

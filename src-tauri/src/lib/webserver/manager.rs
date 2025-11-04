@@ -26,17 +26,17 @@ use super::{
     types::{WebServerConfig, WebServerStatus},
 };
 
-#[derive(Default)]
+#[derive(Clone)]
 pub struct WebServerManager {
-    inner: Mutex<Option<WebServerHandle>>,
-    default_config: WebServerConfig,
+    inner: Arc<Mutex<Option<WebServerHandle>>>,
+    default_config: Arc<WebServerConfig>,
 }
 
 impl WebServerManager {
     pub fn new() -> Self {
         Self {
-            inner: Mutex::new(None),
-            default_config: WebServerConfig::default(),
+            inner: Arc::new(Mutex::new(None)),
+            default_config: Arc::new(WebServerConfig::default()),
         }
     }
 
@@ -56,7 +56,7 @@ impl WebServerManager {
             guard.take();
         }
 
-        let config = config.unwrap_or_else(|| self.default_config.clone());
+        let config = config.unwrap_or_else(|| (*self.default_config).clone());
         let bind_addr = format!("{}:{}", config.host, config.port);
         let listener = TcpListener::bind(&bind_addr)
             .await

@@ -60,7 +60,40 @@ pub fn run() {
 
             match tauri::async_runtime::block_on(lib::db::init_db(&handle)) {
                 Ok(db) => {
-                    app.manage(AppState::new(handle.clone(), db));
+                    let state = AppState::new(handle.clone(), db);
+                    
+                    // 根据设置决定是否自动启动 WebServer
+                    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+                    {
+                        use lib::services::setting_service::SettingService;
+                        
+                        let db_clone = state.db().clone();
+                        let app_handle = state.app_handle();
+                        let web_server = state.web_server().clone();
+                        
+                        tauri::async_runtime::spawn(async move {
+                            match SettingService::get_bool(&db_clone, "webserver.auto_start", false).await {
+                                Ok(true) => {
+                                    println!("Auto-starting WebServer based on settings...");
+                                    if let Err(e) = web_server.start(db_clone.clone(), app_handle.clone(), None).await {
+                                        eprintln!("Failed to auto-start WebServer: {}", e);
+                                    } else {
+                                        println!("WebServer auto-started successfully");
+                                        // 更新托盘菜单
+                                        let _ = lib::tray::update_tray_menu_from_app(&app_handle, true);
+                                    }
+                                }
+                                Ok(false) => {
+                                    println!("WebServer auto-start is disabled");
+                                }
+                                Err(e) => {
+                                    eprintln!("Failed to read auto-start setting: {}", e);
+                                }
+                            }
+                        });
+                    }
+                    
+                    app.manage(state);
                     
                     // 创建系统托盘（仅桌面平台）
                     #[cfg(not(any(target_os = "android", target_os = "ios")))]
