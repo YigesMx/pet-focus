@@ -34,3 +34,11 @@ export async function updateTodo(
 export async function deleteTodo(id: number): Promise<void> {
   await invoke("delete_todo", { id })
 }
+
+export async function updateTodoDueDate(
+  id: number,
+  dueDate: string | null,
+): Promise<Todo> {
+  const payload = { id, due_date: dueDate }
+  return await invoke<Todo>("update_todo_due_date", { payload })
+}

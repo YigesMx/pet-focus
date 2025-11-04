@@ -8,6 +8,9 @@ pub struct Model {
     pub title: String,
     #[sea_orm(default_value = false)]
     pub completed: bool,
+    pub created_date: DateTimeUtc,
+    pub modified_date: DateTimeUtc,
+    pub due_date: Option<DateTimeUtc>,
     pub created_at: DateTimeUtc,
     pub updated_at: DateTimeUtc,
 }

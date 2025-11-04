@@ -24,6 +24,12 @@ pub struct UpdateTodoPayload {
     pub completed: Option<bool>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct UpdateTodoDueDatePayload {
+    pub id: i32,
+    pub due_date: Option<String>,
+}
+
 #[tauri::command]
 pub async fn list_todos(state: State<'_, AppState>) -> Result<Vec<Todo>, String> {
     todo_service::list_todos(state.db())
@@ -56,6 +62,16 @@ pub async fn update_todo(
 #[tauri::command]
 pub async fn delete_todo(state: State<'_, AppState>, id: i32) -> Result<(), String> {
     todo_service::delete_todo(state.db(), id)
+        .await
+        .map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+pub async fn update_todo_due_date(
+    state: State<'_, AppState>,
+    payload: UpdateTodoDueDatePayload,
+) -> Result<Todo, String> {
+    todo_service::update_todo_due_date(state.db(), payload.id, payload.due_date)
         .await
         .map_err(|err| err.to_string())
 }

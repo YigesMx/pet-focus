@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { toast } from "sonner";
 
-import { createTodo, deleteTodo, listTodos, updateTodo } from "@/lib/todo-api";
+import { createTodo, deleteTodo, listTodos, updateTodo, updateTodoDueDate } from "@/lib/todo-api";
 import { reportError } from "@/lib/report-error";
 import type { Todo } from "@/types/todo";
 
@@ -165,6 +165,24 @@ export function useTodoManager() {
     [toggleBusy],
   );
 
+  const updateDueDate = useCallback(
+    async (id: number, dueDate: string | null) => {
+      toggleBusy(id, true);
+      try {
+        const updated = await updateTodoDueDate(id, dueDate);
+        setTodos((previous) =>
+          sortTodos(previous.map((todo) => (todo.id === id ? updated : todo))),
+        );
+        toast.success(dueDate ? "已设置到期日期" : "已清除到期日期");
+      } catch (error) {
+        reportError("更新到期日期失败", error);
+      } finally {
+        toggleBusy(id, false);
+      }
+    },
+    [sortTodos, toggleBusy],
+  );
+
   const busyIdsMemo = useMemo(() => new Set(busyTodoIds), [busyTodoIds]);
 
   return {
@@ -175,6 +193,7 @@ export function useTodoManager() {
     createTodo: createTodoEntry,
     toggleCompleted,
     updateTitle,
+    updateDueDate,
     deleteTodo: deleteTodoEntry,
   };
 }

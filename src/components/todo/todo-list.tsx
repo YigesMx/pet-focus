@@ -9,6 +9,7 @@ type TodoListProps = {
   busyTodoIds?: Set<number>
   onToggleCompleted: (id: number, completed: boolean) => void
   onUpdateTitle: (id: number, title: string) => void
+  onUpdateDueDate: (id: number, dueDate: string | null) => void
   onDelete: (id: number) => void
 }
 
@@ -18,6 +19,7 @@ export function TodoList({
   busyTodoIds = new Set<number>(),
   onToggleCompleted,
   onUpdateTitle,
+  onUpdateDueDate,
   onDelete,
 }: TodoListProps) {
   if (isLoading) {
@@ -48,6 +50,7 @@ export function TodoList({
           disabled={busyTodoIds.has(todo.id)}
           onToggleCompleted={onToggleCompleted}
           onUpdateTitle={onUpdateTitle}
+          onUpdateDueDate={onUpdateDueDate}
           onDelete={onDelete}
         />
       ))}

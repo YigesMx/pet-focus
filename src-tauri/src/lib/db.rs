@@ -58,6 +58,58 @@ async fn run_migrations(db: &DatabaseConnection) -> Result<()> {
         .await
         .context("failed to create todos table")?;
 
+    // 添加新字段到 todos 表（如果不存在）
+    // 检查字段是否存在，如果不存在则添加
+    let check_columns = db
+        .query_one(Statement::from_string(
+            backend,
+            "PRAGMA table_info(todos)".to_owned(),
+        ))
+        .await
+        .ok();
+
+    // 如果表已存在但缺少新字段，则添加它们
+    if check_columns.is_some() {
+        // 尝试添加 created_date 字段
+        let _ = db
+            .execute(Statement::from_string(
+                backend,
+                "ALTER TABLE todos ADD COLUMN created_date TEXT".to_owned(),
+            ))
+            .await;
+
+        // 尝试添加 modified_date 字段
+        let _ = db
+            .execute(Statement::from_string(
+                backend,
+                "ALTER TABLE todos ADD COLUMN modified_date TEXT".to_owned(),
+            ))
+            .await;
+
+        // 尝试添加 due_date 字段
+        let _ = db
+            .execute(Statement::from_string(
+                backend,
+                "ALTER TABLE todos ADD COLUMN due_date TEXT".to_owned(),
+            ))
+            .await;
+
+        // 为旧数据设置默认值（使用 created_at 的值）
+        let _ = db
+            .execute(Statement::from_string(
+                backend,
+                "UPDATE todos SET created_date = created_at WHERE created_date IS NULL".to_owned(),
+            ))
+            .await;
+
+        let _ = db
+            .execute(Statement::from_string(
+                backend,
+                "UPDATE todos SET modified_date = updated_at WHERE modified_date IS NULL".to_owned(),
+            ))
+            .await;
+    }
+
     // 创建 settings 表
     let mut create_settings = schema.create_table_from_entity(setting::Entity);
     create_settings.if_not_exists();
