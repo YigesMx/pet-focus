@@ -5,11 +5,13 @@ mod lib {
     pub mod entities;
     pub mod models;
     pub mod services;
+    pub mod timer;
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     pub mod tray;
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     pub mod webserver;
-    pub mod timer;
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    pub mod window;
 }
 
 // 重新导出公共 API
@@ -88,6 +90,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .setup(|app| {
+
             let handle = app.handle();
 
             match tauri::async_runtime::block_on(lib::db::init_db(&handle)) {
@@ -143,7 +146,7 @@ pub fn run() {
                 // 桌面平台：隐藏窗口而不是关闭
                 #[cfg(not(any(target_os = "android", target_os = "ios")))]
                 {
-                    window.hide().unwrap();
+                    let _ = lib::window::hide_main_window(&window.app_handle());
                     api.prevent_close();
                 }
                 // 移动平台：允许正常关闭

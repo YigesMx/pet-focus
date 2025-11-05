@@ -7,6 +7,7 @@ use super::{
     message::{CallBody, WsMessage},
 };
 use crate::lib::services::todo_service;
+use crate::lib::window;
 
 /// 处理 Call 请求
 pub async fn handle_call(
@@ -24,6 +25,7 @@ pub async fn handle_call(
         "create_todo" => handle_create_todo(db, params, ctx).await,
         "update_todo" => handle_update_todo(db, params, ctx).await,
         "delete_todo" => handle_delete_todo(db, params, ctx).await,
+        "wake_window" => handle_wake_window(ctx).await,
         _ => Err(format!("Unknown method: {}", method)),
     };
 
@@ -132,6 +134,14 @@ async fn handle_delete_todo(
     
     // 统一的变更通知（会自动触发 reschedule）
     ctx.notify_change("deleted", Some(id)).await;
+    
+    Ok(json!({"success": true}))
+}
+
+/// 唤醒主窗口
+async fn handle_wake_window(ctx: &ApiContext) -> Result<Value, String> {
+    window::show_main_window(ctx.app_handle())
+        .map_err(|e| format!("Failed to wake window: {}", e))?;
     
     Ok(json!({"success": true}))
 }

@@ -7,7 +7,7 @@ use tauri::{
     AppHandle, Emitter, Manager, Wry,
 };
 
-use crate::{AppState, lib::services::setting_service::SettingService};
+use crate::{AppState, lib::services::setting_service::SettingService, lib::window};
 
 const WEBSERVER_STATUS_CHANGED_EVENT: &str = "webserver-status-changed";
 
@@ -44,23 +44,13 @@ pub fn create_tray(app: &AppHandle<Wry>) -> tauri::Result<()> {
             } = event
             {
                 let app = tray.app_handle();
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                }
+                let _ = window::show_main_window(&app);
             }
         })
         .on_menu_event(move |app, event| {
             match event.id.as_ref() {
                 "toggle" => {
-                    if let Some(window) = app.get_webview_window("main") {
-                        if window.is_visible().unwrap_or(false) {
-                            let _ = window.hide();
-                        } else {
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        }
-                    }
+                    let _ = window::toggle_main_window(&app);
                 }
                 "start_server" => {
                     let app_handle = app.clone();
