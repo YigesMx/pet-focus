@@ -35,6 +35,10 @@ impl ApiContext {
         &self.db
     }
 
+    pub(super) fn app_handle(&self) -> &AppHandle<Wry> {
+        &self.app_handle
+    }
+
     pub(super) fn connection_manager(&self) -> &ConnectionManager {
         &self.connection_manager
     }

@@ -300,6 +300,54 @@
 }
 ```
 
+### wake_window
+
+唤醒并显示应用主窗口。此方法会将隐藏的窗口显示出来并置于前台。
+
+**特性**:
+- 显示应用主窗口
+- 将窗口置于前台并获得焦点
+- macOS: 同时在 Dock 中显示应用图标
+
+**请求**:
+```json
+{
+  "type": "call",
+  "body": {
+    "id": "5",
+    "method": "wake_window"
+  }
+}
+```
+
+**响应**:
+```json
+{
+  "type": "reply",
+  "body": {
+    "id": "5",
+    "method": "wake_window",
+    "status": "success",
+    "data": {
+      "success": true
+    }
+  }
+}
+```
+
+**错误响应**:
+```json
+{
+  "type": "reply",
+  "body": {
+    "id": "5",
+    "method": "wake_window",
+    "status": "error",
+    "error": "Failed to wake window: Main window not found"
+  }
+}
+```
+
 ## 频道
 
 ### placeholder

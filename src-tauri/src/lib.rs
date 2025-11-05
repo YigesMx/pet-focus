@@ -9,6 +9,8 @@ mod lib {
     pub mod tray;
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     pub mod webserver;
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    pub mod window;
 }
 
 // 重新导出公共 API
@@ -134,14 +136,8 @@ pub fn run() {
                 // 桌面平台：隐藏窗口而不是关闭
                 #[cfg(not(any(target_os = "android", target_os = "ios")))]
                 {
-                    window.hide().unwrap();
+                    let _ = lib::window::hide_main_window(&window.app_handle());
                     api.prevent_close();
-                    
-                    // macOS: 窗口隐藏时隐藏 Dock 图标
-                    #[cfg(target_os = "macos")]
-                    {
-                        let _ = window.app_handle().set_activation_policy(tauri::ActivationPolicy::Accessory);
-                    }
                 }
                 // 移动平台：允许正常关闭
                 #[cfg(any(target_os = "android", target_os = "ios"))]
