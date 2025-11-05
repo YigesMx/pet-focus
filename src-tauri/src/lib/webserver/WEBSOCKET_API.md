@@ -304,7 +304,7 @@
 
 ### placeholder
 
-占位频道，服务器每 30 秒向订阅者发送一条占位消息。
+占位频道，服务器每 5 秒向订阅者发送一条占位消息，用作测试。
 
 **订阅**:
 ```json
@@ -328,6 +328,49 @@
   }
 }
 ```
+
+### due_notification
+
+到期提醒频道，当待办事项的到期时间到达时，服务器会向订阅者发送提醒通知。
+
+**订阅**:
+```json
+{
+  "type": "listen",
+  "body": {
+    "channel": "due_notification"
+  }
+}
+```
+
+**事件**:
+```json
+{
+  "type": "event",
+  "body": {
+    "channel": "due_notification",
+    "data": {
+      "todo_id": 1,
+      "title": "重要会议",
+      "due_date": "2025-11-05T15:00:00Z",
+      "timestamp": "2025-11-05T14:45:00Z"
+    }
+  }
+}
+```
+
+**字段说明**:
+- `todo_id`: 待办事项的 ID
+- `title`: 待办事项的标题
+- `due_date`: 到期时间（ISO 8601 格式）
+- `timestamp`: 通知发送时间（ISO 8601 格式）
+
+**工作原理**:
+1. 每个待办事项可以设置 `due_date`（到期时间）和 `remind_before_minutes`（提前提醒分钟数，默认 15 分钟）
+2. 调度器会自动计算提醒时间：`remind_at = due_date - remind_before_minutes`
+3. 当到达提醒时间时，服务器会向所有订阅了 `due_notification` 频道的客户端推送通知
+4. 每个待办事项只会发送一次通知（通过 `notified` 字段标记）
+5. 如果用户修改了待办事项的 `due_date`，`notified` 字段会重置为 `false`，允许再次发送通知
 
 ## 错误处理
 
