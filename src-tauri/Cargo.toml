@@ -26,6 +26,7 @@ anyhow = "1"
 chrono = { version = "0.4", features = ["serde"] }
 sea-orm = { version = "0.12", features = ["macros", "runtime-tokio-native-tls", "sqlx-sqlite"] }
 directories = "5"
+tauri-plugin-notification = "2"
 
 # 仅桌面平台启用系统托盘和 Web 服务器功能
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]

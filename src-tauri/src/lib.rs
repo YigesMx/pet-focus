@@ -9,6 +9,7 @@ mod lib {
     pub mod tray;
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     pub mod webserver;
+    pub mod timer;
 }
 
 // 重新导出公共 API
@@ -16,6 +17,8 @@ pub use lib::entities;
 
 use sea_orm::DatabaseConnection;
 use tauri::{AppHandle, Emitter, Manager, Wry};
+use std::sync::{Arc, Mutex};
+use crate::lib::timer::state::TimerState;
 
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 use lib::webserver::WebServerManager;
@@ -25,6 +28,7 @@ pub struct AppState {
     db: DatabaseConnection,
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     web_server: WebServerManager,
+    timer: Arc<Mutex<TimerState>>,
 }
 
 impl AppState {
@@ -32,6 +36,7 @@ impl AppState {
         Self {
             app_handle,
             db,
+            timer: Arc::new(Mutex::new(TimerState::default())),
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
             web_server: WebServerManager::new(),
         }
@@ -43,6 +48,10 @@ impl AppState {
 
     pub fn app_handle(&self) -> AppHandle<Wry> {
         self.app_handle.clone()
+    }
+
+    pub fn timer(&self) -> &Arc<Mutex<TimerState>> {
+        &self.timer
     }
 
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
@@ -77,6 +86,7 @@ impl AppState {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             let handle = app.handle();
 
@@ -157,7 +167,12 @@ pub fn run() {
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
             lib::commands::stop_web_server,
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
-            lib::commands::web_server_status
+            lib::commands::web_server_status,
+
+            lib::timer::commands::start_timer,
+            lib::timer::commands::pause_timer,
+            lib::timer::commands::reset_timer,
+            lib::timer::commands::get_initial_state
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
