@@ -78,6 +78,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
+
             let handle = app.handle();
 
             match tauri::async_runtime::block_on(lib::db::init_db(&handle)) {
@@ -135,6 +136,12 @@ pub fn run() {
                 {
                     window.hide().unwrap();
                     api.prevent_close();
+                    
+                    // macOS: 窗口隐藏时隐藏 Dock 图标
+                    #[cfg(target_os = "macos")]
+                    {
+                        let _ = window.app_handle().set_activation_policy(tauri::ActivationPolicy::Accessory);
+                    }
                 }
                 // 移动平台：允许正常关闭
                 #[cfg(any(target_os = "android", target_os = "ios"))]

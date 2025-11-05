@@ -47,6 +47,12 @@ pub fn create_tray(app: &AppHandle<Wry>) -> tauri::Result<()> {
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.show();
                     let _ = window.set_focus();
+                    
+                    // macOS: 窗口显示时显示 Dock 图标
+                    #[cfg(target_os = "macos")]
+                    {
+                        let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
+                    }
                 }
             }
         })
@@ -56,9 +62,21 @@ pub fn create_tray(app: &AppHandle<Wry>) -> tauri::Result<()> {
                     if let Some(window) = app.get_webview_window("main") {
                         if window.is_visible().unwrap_or(false) {
                             let _ = window.hide();
+                            
+                            // macOS: 窗口隐藏时隐藏 Dock 图标
+                            #[cfg(target_os = "macos")]
+                            {
+                                let _ = app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+                            }
                         } else {
                             let _ = window.show();
                             let _ = window.set_focus();
+                            
+                            // macOS: 窗口显示时显示 Dock 图标
+                            #[cfg(target_os = "macos")]
+                            {
+                                let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
+                            }
                         }
                     }
                 }
