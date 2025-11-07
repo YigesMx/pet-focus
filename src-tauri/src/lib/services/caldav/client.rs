@@ -601,7 +601,7 @@ struct MultiStatusItem {
 
 fn parse_multistatus(xml: &str) -> Result<Vec<MultiStatusItem>> {
     let mut reader = Reader::from_str(xml);
-    reader.trim_text(true);
+    reader.config_mut().trim_text(true);
 
     let mut buf = Vec::new();
     let mut items = Vec::new();
@@ -627,8 +627,9 @@ fn parse_multistatus(xml: &str) -> Result<Vec<MultiStatusItem>> {
             },
             Ok(Event::Text(data)) => {
                 if let (Some(field), Some(item)) = (capture.as_ref(), current.as_mut()) {
-                    let text = data
-                        .unescape()
+                    let text = reader
+                        .decoder()
+                        .decode(data.as_ref())
                         .unwrap_or_else(|_| Cow::Borrowed(""))
                         .to_string();
                     match field {
