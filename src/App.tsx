@@ -172,8 +172,7 @@ function App() {
           </div>
         </div>
       </div>
->>>>>>> 996f31d (feat: [ui] add navigation bar and pomodoro timer module)
-    </div>
+      </div>
   );
 }
 
