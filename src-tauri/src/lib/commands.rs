@@ -3,7 +3,11 @@ use tauri::{Emitter, State};
 
 use super::{
     models::todo::Todo,
-    services::{setting_service::SettingService, todo_service},
+    services::{
+        pomorodo_service::{self, PomodoroSettings},
+        setting_service::SettingService,
+        todo_service,
+    },
 };
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 use super::webserver::WebServerStatus;
@@ -11,6 +15,8 @@ use crate::AppState;
 
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 const WEBSERVER_STATUS_CHANGED_EVENT: &str = "webserver-status-changed";
+const TIMER_SETTINGS_CHANGED_EVENT: &str = "timer-settings-changed";
+const POMODORO_COUNT_CHANGED_EVENT: &str = "pomodoro-count-changed";
 
 #[derive(Debug, Default, Deserialize)]
 pub struct CreateTodoPayload {
@@ -34,6 +40,14 @@ pub struct UpdateTodoDueDatePayload {
 pub struct UpdateTodoRemindBeforePayload {
     pub id: i32,
     pub remind_before_minutes: i32,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SetTimerSettingsPayload {
+    pub work_duration: u32,
+    pub short_break_duration: u32,
+    pub long_break_duration: u32,
+    pub long_break_interval: u32,
 }
 
 #[tauri::command]
@@ -165,4 +179,63 @@ pub async fn stop_web_server(state: State<'_, AppState>) -> Result<WebServerStat
 #[tauri::command]
 pub async fn web_server_status(state: State<'_, AppState>) -> Result<WebServerStatus, String> {
     Ok(state.web_server().status().await)
+}
+
+// --- Pomodoro settings commands ---
+
+#[tauri::command]
+pub async fn get_timer_settings(state: State<'_, AppState>) -> Result<PomodoroSettings, String> {
+    pomorodo_service::get_settings(state.db())
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn set_timer_settings(
+    state: State<'_, AppState>,
+    payload: SetTimerSettingsPayload,
+) -> Result<PomodoroSettings, String> {
+    let settings = PomodoroSettings {
+        work_duration: payload.work_duration,
+        short_break_duration: payload.short_break_duration,
+        long_break_duration: payload.long_break_duration,
+        long_break_interval: payload.long_break_interval,
+    };
+
+    let saved = pomorodo_service::set_settings(state.db(), settings)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    // Apply to runtime state after saving
+    pomorodo_service::apply_settings_to_state(state.db(), state.timer())
+        .await
+        .map_err(|e| e.to_string())?;
+
+    // Notify frontend to refresh settings/UI
+    let _ = state
+        .app_handle()
+        .emit(TIMER_SETTINGS_CHANGED_EVENT, &saved);
+
+    Ok(saved)
+}
+
+#[tauri::command]
+pub async fn get_pomodoro_count(state: State<'_, AppState>) -> Result<u32, String> {
+    pomorodo_service::get_pomodoro_count(state.db())
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn set_pomodoro_count(state: State<'_, AppState>, count: u32) -> Result<(), String> {
+    pomorodo_service::set_pomodoro_count(state.db(), count)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    // Notify frontend about count change
+    let _ = state
+        .app_handle()
+        .emit(POMODORO_COUNT_CHANGED_EVENT, &count);
+
+    Ok(())
 }

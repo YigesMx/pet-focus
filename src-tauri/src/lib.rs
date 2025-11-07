@@ -97,6 +97,17 @@ pub fn run() {
                 Ok(db) => {
                     let state = AppState::new(handle.clone(), db);
                     
+                    // 应用数据库中的番茄钟设置到运行时状态
+                    {
+                        let db_clone = state.db().clone();
+                        let timer = state.timer().clone();
+                        tauri::async_runtime::spawn(async move {
+                            if let Err(e) = lib::services::pomorodo_service::apply_settings_to_state(&db_clone, &timer).await {
+                                eprintln!("Failed to apply pomodoro settings on startup: {}", e);
+                            }
+                        });
+                    }
+                    
                     // 根据设置决定是否自动启动 WebServer
                     #[cfg(not(any(target_os = "android", target_os = "ios")))]
                     {
@@ -165,6 +176,10 @@ pub fn run() {
             lib::commands::delete_todo,
             lib::commands::update_todo_due_date,
             lib::commands::update_todo_remind_before,
+            lib::commands::get_timer_settings,
+            lib::commands::set_timer_settings,
+            lib::commands::get_pomodoro_count,
+            lib::commands::set_pomodoro_count,
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
             lib::commands::start_web_server,
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
