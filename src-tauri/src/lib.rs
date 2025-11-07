@@ -19,21 +19,25 @@ pub use lib::entities;
 use sea_orm::DatabaseConnection;
 use tauri::{AppHandle, Emitter, Manager, Wry};
 
+use lib::services::caldav::{CalDavSyncManager, SyncReason};
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 use lib::webserver::WebServerManager;
 
 pub struct AppState {
     app_handle: AppHandle<Wry>,
     db: DatabaseConnection,
+    caldav: CalDavSyncManager,
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     web_server: WebServerManager,
 }
 
 impl AppState {
     pub fn new(app_handle: AppHandle<Wry>, db: DatabaseConnection) -> Self {
+        let caldav = CalDavSyncManager::new(db.clone(), app_handle.clone());
         Self {
             app_handle,
             db,
+            caldav,
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
             web_server: WebServerManager::new(),
         }
@@ -45,6 +49,10 @@ impl AppState {
 
     pub fn app_handle(&self) -> AppHandle<Wry> {
         self.app_handle.clone()
+    }
+
+    pub fn caldav(&self) -> &CalDavSyncManager {
+        &self.caldav
     }
 
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
@@ -60,8 +68,8 @@ impl AppState {
         // 通知前端（标记为来自本地命令）
         if let Err(err) = self.app_handle.emit(
             "todo-data-updated",
-            serde_json::json!({ 
-                "action": action, 
+            serde_json::json!({
+                "action": action,
                 "todoId": todo_id,
                 "source": "local"
             }),
@@ -72,6 +80,8 @@ impl AppState {
         // 触发调度器重新调度
         #[cfg(not(any(target_os = "android", target_os = "ios")))]
         self.web_server.reschedule_notifications().await;
+
+        self.caldav.trigger(SyncReason::DataChanged);
     }
 }
 
@@ -80,32 +90,37 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
-
             let handle = app.handle();
 
             match tauri::async_runtime::block_on(lib::db::init_db(&handle)) {
                 Ok(db) => {
                     let state = AppState::new(handle.clone(), db);
-                    
+
                     // 根据设置决定是否自动启动 WebServer
                     #[cfg(not(any(target_os = "android", target_os = "ios")))]
                     {
                         use lib::services::setting_service::SettingService;
-                        
+
                         let db_clone = state.db().clone();
                         let app_handle = state.app_handle();
                         let web_server = state.web_server().clone();
-                        
+
                         tauri::async_runtime::spawn(async move {
-                            match SettingService::get_bool(&db_clone, "webserver.auto_start", false).await {
+                            match SettingService::get_bool(&db_clone, "webserver.auto_start", false)
+                                .await
+                            {
                                 Ok(true) => {
                                     println!("Auto-starting WebServer based on settings...");
-                                    if let Err(e) = web_server.start(db_clone.clone(), app_handle.clone(), None).await {
+                                    if let Err(e) = web_server
+                                        .start(db_clone.clone(), app_handle.clone(), None)
+                                        .await
+                                    {
                                         eprintln!("Failed to auto-start WebServer: {}", e);
                                     } else {
                                         println!("WebServer auto-started successfully");
                                         // 更新托盘菜单
-                                        let _ = lib::tray::update_tray_menu_from_app(&app_handle, true);
+                                        let _ =
+                                            lib::tray::update_tray_menu_from_app(&app_handle, true);
                                     }
                                 }
                                 Ok(false) => {
@@ -117,15 +132,15 @@ pub fn run() {
                             }
                         });
                     }
-                    
+
                     app.manage(state);
-                    
+
                     // 创建系统托盘（仅桌面平台）
                     #[cfg(not(any(target_os = "android", target_os = "ios")))]
                     if let Err(e) = lib::tray::create_tray(&handle) {
                         eprintln!("Failed to create system tray: {}", e);
                     }
-                    
+
                     Ok(())
                 }
                 Err(err) => Err(err.into()),
@@ -154,6 +169,10 @@ pub fn run() {
             lib::commands::update_todo,
             lib::commands::delete_todo,
             lib::commands::update_todo_details,
+            lib::commands::get_caldav_status,
+            lib::commands::save_caldav_config,
+            lib::commands::clear_caldav_config,
+            lib::commands::sync_caldav_now,
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
             lib::commands::start_web_server,
             #[cfg(not(any(target_os = "android", target_os = "ios")))]

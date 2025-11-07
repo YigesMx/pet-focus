@@ -20,12 +20,12 @@ pub async fn handle_call(
     let CallBody { id, method, params } = call;
 
     let result = match method.as_str() {
-    "list_todos" => handle_list_todos(db).await,
-    "get_todo" => handle_get_todo(db, params).await,
-    "create_todo" => handle_create_todo(db, params, ctx).await,
-    "update_todo" => handle_update_todo(db, params, ctx).await,
-    "delete_todo" => handle_delete_todo(db, params, ctx).await,
-    "update_todo_details" => handle_update_todo_details(db, params, ctx).await,
+        "list_todos" => handle_list_todos(db).await,
+        "get_todo" => handle_get_todo(db, params).await,
+        "create_todo" => handle_create_todo(db, params, ctx).await,
+        "update_todo" => handle_update_todo(db, params, ctx).await,
+        "delete_todo" => handle_delete_todo(db, params, ctx).await,
+        "update_todo_details" => handle_update_todo_details(db, params, ctx).await,
         "wake_window" => handle_wake_window(ctx).await,
         _ => Err(format!("Unknown method: {}", method)),
     };
@@ -42,26 +42,22 @@ pub async fn handle_call(
 
 /// 列出所有待办
 async fn handle_list_todos(db: &DatabaseConnection) -> Result<Value, String> {
-    let todos = todo::list_todos(db)
-        .await
-        .map_err(|e| e.to_string())?;
-    
+    let todos = todo::list_todos(db).await.map_err(|e| e.to_string())?;
+
     Ok(json!(todos))
 }
 
 /// 获取单个待办
 async fn handle_get_todo(db: &DatabaseConnection, params: Option<Value>) -> Result<Value, String> {
     let params = params.ok_or("Missing params")?;
-    
+
     let id = params
         .get("id")
         .and_then(|v| v.as_i64())
         .ok_or("Missing or invalid id")? as i32;
 
-    let todo = todo::get_todo(db, id)
-        .await
-        .map_err(|e| e.to_string())?;
-    
+    let todo = todo::get_todo(db, id).await.map_err(|e| e.to_string())?;
+
     Ok(json!(todo))
 }
 
@@ -71,16 +67,15 @@ async fn handle_create_todo(
     params: Option<Value>,
     ctx: &ApiContext,
 ) -> Result<Value, String> {
-    let title = params
-        .and_then(|p| p.get("title").and_then(|t| t.as_str()).map(String::from));
+    let title = params.and_then(|p| p.get("title").and_then(|t| t.as_str()).map(String::from));
 
     let todo = todo::create_todo(db, title)
         .await
         .map_err(|e| e.to_string())?;
-    
+
     // 统一的变更通知（会自动触发 reschedule）
     ctx.notify_change("created", Some(todo.id)).await;
-    
+
     Ok(json!(todo))
 }
 
@@ -91,28 +86,26 @@ async fn handle_update_todo(
     ctx: &ApiContext,
 ) -> Result<Value, String> {
     let params = params.ok_or("Missing params")?;
-    
+
     let id = params
         .get("id")
         .and_then(|v| v.as_i64())
         .ok_or("Missing or invalid id")? as i32;
-    
+
     let title = params
         .get("title")
         .and_then(|v| v.as_str())
         .map(String::from);
-    
-    let completed = params
-        .get("completed")
-        .and_then(|v| v.as_bool());
+
+    let completed = params.get("completed").and_then(|v| v.as_bool());
 
     let todo = todo::update_todo(db, id, title, completed)
         .await
         .map_err(|e| e.to_string())?;
-    
+
     // 统一的变更通知（会自动触发 reschedule）
     ctx.notify_change("updated", Some(id)).await;
-    
+
     Ok(json!(todo))
 }
 
@@ -123,19 +116,17 @@ async fn handle_delete_todo(
     ctx: &ApiContext,
 ) -> Result<Value, String> {
     let params = params.ok_or("Missing params")?;
-    
+
     let id = params
         .get("id")
         .and_then(|v| v.as_i64())
         .ok_or("Missing or invalid id")? as i32;
 
-    todo::delete_todo(db, id)
-        .await
-        .map_err(|e| e.to_string())?;
-    
+    todo::delete_todo(db, id).await.map_err(|e| e.to_string())?;
+
     // 统一的变更通知（会自动触发 reschedule）
     ctx.notify_change("deleted", Some(id)).await;
-    
+
     Ok(json!({"success": true}))
 }
 
@@ -239,6 +230,6 @@ async fn handle_update_todo_details(
 async fn handle_wake_window(ctx: &ApiContext) -> Result<Value, String> {
     window::show_main_window(ctx.app_handle())
         .map_err(|e| format!("Failed to wake window: {}", e))?;
-    
+
     Ok(json!({"success": true}))
 }

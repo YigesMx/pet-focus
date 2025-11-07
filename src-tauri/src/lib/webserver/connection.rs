@@ -34,11 +34,7 @@ impl ConnectionManager {
     }
 
     /// 注册新连接
-    pub async fn register(
-        &self,
-        id: ConnectionId,
-        tx: mpsc::UnboundedSender<Message>,
-    ) {
+    pub async fn register(&self, id: ConnectionId, tx: mpsc::UnboundedSender<Message>) {
         let mut conns = self.connections.write().await;
         conns.insert(
             id,
@@ -52,7 +48,7 @@ impl ConnectionManager {
     /// 注销连接
     pub async fn unregister(&self, id: &ConnectionId) {
         let mut connections = self.connections.write().await;
-        
+
         if let Some(conn) = connections.remove(id) {
             // 从所有订阅的频道中移除
             let mut channels = self.channels.write().await;
@@ -75,12 +71,12 @@ impl ConnectionManager {
 
         if let Some(conn) = connections.get_mut(conn_id) {
             conn.subscribed_channels.insert(channel.clone());
-            
+
             channels
                 .entry(channel.clone())
                 .or_insert_with(HashSet::new)
                 .insert(conn_id.clone());
-            
+
             println!("Connection {} subscribed to channel: {}", conn_id, channel);
         }
     }
@@ -92,30 +88,33 @@ impl ConnectionManager {
 
         if let Some(conn) = connections.get_mut(conn_id) {
             conn.subscribed_channels.remove(channel);
-            
+
             if let Some(subscribers) = channels.get_mut(channel) {
                 subscribers.remove(conn_id);
                 if subscribers.is_empty() {
                     channels.remove(channel);
                 }
             }
-            
-            println!("Connection {} unsubscribed from channel: {}", conn_id, channel);
+
+            println!(
+                "Connection {} unsubscribed from channel: {}",
+                conn_id, channel
+            );
         }
     }
 
     /// 向指定连接发送消息
     pub async fn send_to(&self, conn_id: &ConnectionId, message: WsMessage) -> Result<(), String> {
         let connections = self.connections.read().await;
-        
+
         if let Some(conn) = connections.get(conn_id) {
             let json = serde_json::to_string(&message)
                 .map_err(|e| format!("Failed to serialize message: {}", e))?;
-            
+
             conn.tx
                 .send(Message::Text(json.into()))
                 .map_err(|e| format!("Failed to send message: {}", e))?;
-            
+
             Ok(())
         } else {
             Err(format!("Connection not found: {}", conn_id))
@@ -125,18 +124,22 @@ impl ConnectionManager {
     /// 向频道的所有订阅者广播消息
     pub async fn broadcast_to_channel(&self, channel: &ChannelName, message: WsMessage) {
         let channels = self.channels.read().await;
-        
+
         if let Some(subscribers) = channels.get(channel) {
             let connections = self.connections.read().await;
             let json = serde_json::to_string(&message).unwrap_or_default();
-            
+
             for conn_id in subscribers {
                 if let Some(conn) = connections.get(conn_id) {
                     let _ = conn.tx.send(Message::Text(json.clone().into()));
                 }
             }
-            
-            println!("Broadcasted to channel {} ({} subscribers)", channel, subscribers.len());
+
+            println!(
+                "Broadcasted to channel {} ({} subscribers)",
+                channel,
+                subscribers.len()
+            );
         }
     }
 

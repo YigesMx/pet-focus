@@ -47,14 +47,14 @@ impl ApiContext {
     /// 会同时：1. 发送事件给前端  2. 触发调度器重新调度
     pub(super) async fn notify_change(&self, action: &'static str, todo_id: Option<i32>) {
         // 通知前端（标记为来自 webserver）
-        if let Err(err) = self
-            .app_handle
-            .emit(TODO_CHANGE_EVENT, json!({ 
-                "action": action, 
+        if let Err(err) = self.app_handle.emit(
+            TODO_CHANGE_EVENT,
+            json!({
+                "action": action,
                 "todoId": todo_id,
                 "source": "webserver"
-            }))
-        {
+            }),
+        ) {
             eprintln!("failed to emit todo change event: {err}");
         }
 

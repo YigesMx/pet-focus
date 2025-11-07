@@ -2,6 +2,7 @@ import "./App.css";
 
 import { useCallback, useMemo, useState } from "react";
 
+import { CalDavSettings } from "@/components/app/caldav-settings";
 import { TodoHeader } from "@/components/app/todo-header";
 import { TodoDetailDialog } from "@/components/todo/todo-detail-dialog";
 import { TodoList } from "@/components/todo/todo-list";
@@ -55,6 +56,7 @@ function App() {
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 py-10">
+        <CalDavSettings />
         <Card>
           <TodoHeader
             isCreating={isCreating}

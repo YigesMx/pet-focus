@@ -20,9 +20,7 @@ pub async fn init_db(_app_handle: &AppHandle) -> Result<DatabaseConnection> {
     fs::create_dir_all(app_dir).context("failed to create application data directory")?;
 
     let db_path = app_dir.join(DB_FILENAME);
-    let path = db_path
-        .to_string_lossy()
-        .replace('\u{5c}', "/");
+    let path = db_path.to_string_lossy().replace('\u{5c}', "/");
     let connection_url = format!("sqlite://{}?mode=rwc", path);
 
     let db = Database::connect(&connection_url)
@@ -94,7 +92,8 @@ async fn run_migrations(db: &DatabaseConnection) -> Result<()> {
             "ALTER TABLE todos ADD COLUMN remote_etag TEXT",
             "ALTER TABLE todos ADD COLUMN remote_calendar_url TEXT",
             "ALTER TABLE todos ADD COLUMN sync_token TEXT",
-            "ALTER TABLE todos ADD COLUMN last_synced_at TEXT"
+            "ALTER TABLE todos ADD COLUMN last_synced_at TEXT",
+            "ALTER TABLE todos ADD COLUMN deleted_at TEXT",
         ];
 
         for stmt in alter_statements {
@@ -114,7 +113,8 @@ async fn run_migrations(db: &DatabaseConnection) -> Result<()> {
         let _ = db
             .execute(Statement::from_string(
                 backend,
-                "UPDATE todos SET modified_date = updated_at WHERE modified_date IS NULL".to_owned(),
+                "UPDATE todos SET modified_date = updated_at WHERE modified_date IS NULL"
+                    .to_owned(),
             ))
             .await;
 
@@ -128,7 +128,8 @@ async fn run_migrations(db: &DatabaseConnection) -> Result<()> {
         let _ = db
             .execute(Statement::from_string(
                 backend,
-                "UPDATE todos SET uid = printf('local-%s', id) WHERE uid IS NULL OR uid = ''".to_owned(),
+                "UPDATE todos SET uid = printf('local-%s', id) WHERE uid IS NULL OR uid = ''"
+                    .to_owned(),
             ))
             .await;
     }

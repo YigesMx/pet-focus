@@ -59,9 +59,7 @@ impl From<todo::Model> for Todo {
             reminder_offset_minutes: model.reminder_offset_minutes,
             timezone: model.timezone,
             reminder_method: model.reminder_method,
-            reminder_last_triggered_at: model
-                .reminder_last_triggered_at
-                .map(|d| d.to_rfc3339()),
+            reminder_last_triggered_at: model.reminder_last_triggered_at.map(|d| d.to_rfc3339()),
             completed_at: model.completed_at.map(|d| d.to_rfc3339()),
             notified: model.notified,
             dirty: model.dirty,

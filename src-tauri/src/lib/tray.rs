@@ -7,7 +7,7 @@ use tauri::{
     AppHandle, Emitter, Manager, Wry,
 };
 
-use crate::{AppState, lib::services::setting_service::SettingService, lib::window};
+use crate::{lib::services::setting_service::SettingService, lib::window, AppState};
 
 const WEBSERVER_STATUS_CHANGED_EVENT: &str = "webserver-status-changed";
 
@@ -35,7 +35,7 @@ pub fn create_tray(app: &AppHandle<Wry>) -> tauri::Result<()> {
     let _tray = TrayIconBuilder::with_id("main")
         .icon(app.default_window_icon().unwrap().clone())
         .menu(&menu)
-        .show_menu_on_left_click(false)  // 左键不显示菜单
+        .show_menu_on_left_click(false) // 左键不显示菜单
         .on_tray_icon_event(|tray, event| {
             if let TrayIconEvent::Click {
                 button: MouseButton::Left,
@@ -64,7 +64,12 @@ pub fn create_tray(app: &AppHandle<Wry>) -> tauri::Result<()> {
                                 Ok(_) => {
                                     println!("Web server started successfully");
                                     // 保存设置
-                                    let _ = SettingService::set_bool(state.db(), "webserver.auto_start", true).await;
+                                    let _ = SettingService::set_bool(
+                                        state.db(),
+                                        "webserver.auto_start",
+                                        true,
+                                    )
+                                    .await;
                                     // 更新托盘菜单
                                     let _ = update_tray_menu(&app_handle, true);
                                     // 通知前端状态变化
@@ -85,7 +90,12 @@ pub fn create_tray(app: &AppHandle<Wry>) -> tauri::Result<()> {
                                 Ok(_) => {
                                     println!("Web server stopped successfully");
                                     // 保存设置
-                                    let _ = SettingService::set_bool(state.db(), "webserver.auto_start", false).await;
+                                    let _ = SettingService::set_bool(
+                                        state.db(),
+                                        "webserver.auto_start",
+                                        false,
+                                    )
+                                    .await;
                                     // 更新托盘菜单
                                     let _ = update_tray_menu(&app_handle, false);
                                     // 通知前端状态变化
@@ -126,7 +136,8 @@ fn build_tray_menu(app: &AppHandle<Wry>, server_running: bool) -> tauri::Result<
 
     let menu = if server_running {
         // 服务器运行中，只显示停止按钮
-        let stop_server_i = MenuItem::with_id(app, "stop_server", "停止 WebSocket API", true, None::<&str>)?;
+        let stop_server_i =
+            MenuItem::with_id(app, "stop_server", "停止 WebSocket API", true, None::<&str>)?;
         Menu::with_items(
             app,
             &[
@@ -139,7 +150,13 @@ fn build_tray_menu(app: &AppHandle<Wry>, server_running: bool) -> tauri::Result<
         )?
     } else {
         // 服务器未运行，只显示启动按钮
-        let start_server_i = MenuItem::with_id(app, "start_server", "启动 WebSocket API", true, None::<&str>)?;
+        let start_server_i = MenuItem::with_id(
+            app,
+            "start_server",
+            "启动 WebSocket API",
+            true,
+            None::<&str>,
+        )?;
         Menu::with_items(
             app,
             &[

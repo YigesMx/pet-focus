@@ -1,12 +1,16 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tauri::{Emitter, State};
 
-use super::{
-    models::todo::Todo,
-    services::{setting_service::SettingService, todo},
-};
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 use super::webserver::WebServerStatus;
+use super::{
+    models::todo::Todo,
+    services::{
+        caldav::{CalDavConfig, CalDavConfigService, CalDavSyncEvent, SyncReason},
+        setting_service::SettingService,
+        todo,
+    },
+};
 use crate::AppState;
 
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
@@ -38,6 +42,23 @@ pub struct UpdateTodoDetailsPayload {
     pub reminder_offset_minutes: Option<i32>,
     pub reminder_method: Option<String>,
     pub timezone: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateCalDavConfigPayload {
+    pub url: String,
+    pub username: String,
+    pub password: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CalDavStatus {
+    pub configured: bool,
+    pub url: Option<String>,
+    pub username: Option<String>,
+    pub last_sync_at: Option<String>,
+    pub last_error: Option<String>,
+    pub syncing: bool,
 }
 
 #[tauri::command]
@@ -113,11 +134,66 @@ pub async fn update_todo_details(
     .await
     .map_err(|err| err.to_string())?;
 
-    state
-        .notify_todo_change("updated", Some(payload.id))
-        .await;
+    state.notify_todo_change("updated", Some(payload.id)).await;
 
     Ok(result)
+}
+
+#[tauri::command]
+pub async fn get_caldav_status(state: State<'_, AppState>) -> Result<CalDavStatus, String> {
+    caldav_status(state.inner()).await
+}
+
+#[tauri::command]
+pub async fn save_caldav_config(
+    state: State<'_, AppState>,
+    payload: UpdateCalDavConfigPayload,
+) -> Result<CalDavStatus, String> {
+    let config = CalDavConfig {
+        url: payload.url.trim().to_string(),
+        username: payload.username.trim().to_string(),
+        password: payload.password,
+    };
+
+    if !config.is_valid() {
+        return Err("CalDAV 配置信息不完整".to_string());
+    }
+
+    CalDavConfigService::set_config(state.db(), &config)
+        .await
+        .map_err(|err| err.to_string())?;
+    CalDavConfigService::set_last_sync(state.db(), None)
+        .await
+        .map_err(|err| err.to_string())?;
+
+    state.caldav().trigger(SyncReason::ConfigUpdated);
+
+    caldav_status(state.inner()).await
+}
+
+#[tauri::command]
+pub async fn clear_caldav_config(state: State<'_, AppState>) -> Result<CalDavStatus, String> {
+    CalDavConfigService::clear_config(state.db())
+        .await
+        .map_err(|err| err.to_string())?;
+
+    // 清理所有待删除的 todo（因为没有 CalDAV 配置，它们无法完成同步删除）
+    todo::cleanup_pending_deletes(state.db())
+        .await
+        .map_err(|err| err.to_string())?;
+
+    state.caldav().trigger(SyncReason::ConfigUpdated);
+
+    caldav_status(state.inner()).await
+}
+
+#[tauri::command]
+pub async fn sync_caldav_now(state: State<'_, AppState>) -> Result<CalDavSyncEvent, String> {
+    state
+        .caldav()
+        .sync_now(SyncReason::Manual)
+        .await
+        .map_err(|err| err.to_string())
 }
 
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
@@ -128,17 +204,19 @@ pub async fn start_web_server(state: State<'_, AppState>) -> Result<WebServerSta
         .start(state.db().clone(), state.app_handle(), None)
         .await
         .map_err(|err| err.to_string());
-    
+
     if result.is_ok() {
         // 保存设置
         let _ = SettingService::set_bool(state.db(), "webserver.auto_start", true).await;
-        
+
         // 通知托盘菜单更新
-        let _ = state.app_handle().emit(WEBSERVER_STATUS_CHANGED_EVENT, true);
+        let _ = state
+            .app_handle()
+            .emit(WEBSERVER_STATUS_CHANGED_EVENT, true);
         // 更新托盘菜单
         let _ = super::tray::update_tray_menu_from_app(&state.app_handle(), true);
     }
-    
+
     result
 }
 
@@ -150,17 +228,19 @@ pub async fn stop_web_server(state: State<'_, AppState>) -> Result<WebServerStat
         .stop()
         .await
         .map_err(|err| err.to_string());
-    
+
     if result.is_ok() {
         // 保存设置
         let _ = SettingService::set_bool(state.db(), "webserver.auto_start", false).await;
-        
+
         // 通知托盘菜单更新
-        let _ = state.app_handle().emit(WEBSERVER_STATUS_CHANGED_EVENT, false);
+        let _ = state
+            .app_handle()
+            .emit(WEBSERVER_STATUS_CHANGED_EVENT, false);
         // 更新托盘菜单
         let _ = super::tray::update_tray_menu_from_app(&state.app_handle(), false);
     }
-    
+
     result
 }
 
@@ -168,4 +248,25 @@ pub async fn stop_web_server(state: State<'_, AppState>) -> Result<WebServerStat
 #[tauri::command]
 pub async fn web_server_status(state: State<'_, AppState>) -> Result<WebServerStatus, String> {
     Ok(state.web_server().status().await)
+}
+
+async fn caldav_status(state: &AppState) -> Result<CalDavStatus, String> {
+    let config = CalDavConfigService::get_config(state.db())
+        .await
+        .map_err(|err| err.to_string())?;
+    let last_sync = CalDavConfigService::get_last_sync(state.db())
+        .await
+        .map_err(|err| err.to_string())?;
+    let last_error = CalDavConfigService::get_last_error(state.db())
+        .await
+        .map_err(|err| err.to_string())?;
+
+    Ok(CalDavStatus {
+        configured: config.is_some(),
+        url: config.as_ref().map(|cfg| cfg.url.clone()),
+        username: config.as_ref().map(|cfg| cfg.username.clone()),
+        last_sync_at: last_sync.map(|dt| dt.to_rfc3339()),
+        last_error,
+        syncing: state.caldav().is_running(),
+    })
 }

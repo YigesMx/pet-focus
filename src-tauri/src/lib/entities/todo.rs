@@ -37,6 +37,7 @@ pub struct Model {
     pub remote_calendar_url: Option<String>,
     pub sync_token: Option<String>,
     pub last_synced_at: Option<DateTimeUtc>,
+    pub deleted_at: Option<DateTimeUtc>,
     pub created_at: DateTimeUtc,
     pub updated_at: DateTimeUtc,
 }

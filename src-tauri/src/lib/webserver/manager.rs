@@ -8,14 +8,13 @@ use std::{
 
 use anyhow::{Context, Result};
 use sea_orm::DatabaseConnection;
+use tauri::{
+    async_runtime::{self, JoinHandle},
+    AppHandle, Wry,
+};
 use tokio::{
     net::TcpListener,
     sync::{oneshot, Mutex},
-};
-use tauri::{
-    async_runtime::{self, JoinHandle},
-    AppHandle,
-    Wry,
 };
 
 use super::{
@@ -74,7 +73,7 @@ impl WebServerManager {
         // 创建并启动到期通知调度器
         let scheduler = DueNotificationScheduler::new(db.clone(), conn_mgr.clone());
         scheduler.reschedule().await;
-        
+
         // 将 scheduler 包装在 Arc<Mutex> 中以便共享
         let scheduler_shared = Arc::new(Mutex::new(Some(scheduler.clone())));
 
@@ -88,7 +87,9 @@ impl WebServerManager {
                     PLACEHOLDER_CHANNEL.to_string(),
                     serde_json::json!({"timestamp": chrono::Utc::now().to_rfc3339()}),
                 );
-                conn_mgr_clone.broadcast_to_channel(&PLACEHOLDER_CHANNEL.to_string(), event).await;
+                conn_mgr_clone
+                    .broadcast_to_channel(&PLACEHOLDER_CHANNEL.to_string(), event)
+                    .await;
             }
         });
 

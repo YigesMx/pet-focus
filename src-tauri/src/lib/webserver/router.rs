@@ -32,13 +32,13 @@ async fn handle_socket(socket: WebSocket, ctx: ApiContext) {
 
     // 注册连接
     let conn_mgr = ctx.connection_manager();
-    
+
     // 生成唯一连接 ID
     let conn_id = format!("conn-{}", CONN_COUNTER.fetch_add(1, Ordering::SeqCst));
-    
+
     // 创建接收通道
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
-    
+
     // 注册连接
     conn_mgr.register(conn_id.clone(), tx).await;
     println!("WebSocket connection registered: {}", conn_id);
@@ -57,7 +57,7 @@ async fn handle_socket(socket: WebSocket, ctx: ApiContext) {
     let conn_mgr_clone = conn_mgr.clone();
     let db = ctx.db().clone();
     let ctx_clone = ctx.clone();
-    
+
     let mut recv_task = tokio::spawn(async move {
         while let Some(Ok(msg)) = receiver.next().await {
             if let Message::Text(text) = msg {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { CalendarClock, MapPin, Repeat, Tag, Timer } from "lucide-react"
 import { toast } from "sonner"
 
@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { TodoDueDatePicker } from "@/components/todo/todo-due-date-picker"
+import { TodoPriorityPicker } from "@/components/todo/todo-priority-picker"
 import type { Todo } from "@/types/todo"
 import type { TodoDetailUpdate } from "@/lib/todo-api"
 
@@ -60,7 +61,7 @@ export function TodoDetailDialog({
   isSubmitting = false,
 }: TodoDetailDialogProps) {
   const [description, setDescription] = useState("")
-  const [priority, setPriority] = useState("")
+  const [priority, setPriority] = useState<number | null>(null)
   const [location, setLocation] = useState("")
   const [tags, setTags] = useState("")
   const [startAt, setStartAt] = useState("")
@@ -79,7 +80,7 @@ export function TodoDetailDialog({
     }
 
     setDescription(todo.description ?? "")
-    setPriority(todo.priority !== null && todo.priority !== undefined ? String(todo.priority) : "")
+    setPriority(todo.priority ?? null)
     setLocation(todo.location ?? "")
     setTags(todo.tags.join(", "))
     setStartAt(isoToLocalInput(todo.start_at))
@@ -89,11 +90,6 @@ export function TodoDetailDialog({
     setReminderMethod(todo.reminder_method ?? DEFAULT_REMINDER_METHOD)
     setTimezone(todo.timezone ?? "")
   }, [open, todo])
-
-  const priorityLabel = useMemo(() => {
-    if (!priority) return "未设置"
-    return `P${priority}`
-  }, [priority])
 
   const handleClose = (nextOpen: boolean) => {
     if (!nextOpen) {
@@ -112,7 +108,7 @@ export function TodoDetailDialog({
 
     const payload: TodoDetailUpdate = {
       description: trimmedDescription.length > 0 ? trimmedDescription : null,
-      priority: priority ? Number(priority) : null,
+      priority: priority,
       location: trimmedLocation.length > 0 ? trimmedLocation : null,
       tags: parseTags(tags),
       start_at: localInputToIso(startAt),
@@ -138,14 +134,14 @@ export function TodoDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-h-[calc(100vh-2rem)] max-w-2xl overflow-hidden p-0 sm:max-h-[calc(100vh-4rem)] sm:max-w-3xl">
+      <DialogContent className="max-h-[calc(100vh-2rem)] max-w-[calc(100%-2rem)] overflow-hidden p-0 sm:max-h-[calc(100vh-4rem)] sm:max-w-2xl md:max-w-[calc(100%-4rem)] lg:max-w-3xl">
         <div className="flex h-full max-h-[calc(100vh-2rem)] flex-col sm:max-h-[calc(100vh-4rem)]">
-          <DialogHeader className="px-6 pt-6">
+          <DialogHeader className="px-6 pt-6 flex-shrink-0">
             <DialogTitle>编辑待办详情</DialogTitle>
           </DialogHeader>
 
           {todo ? (
-            <div className="flex-1 overflow-y-auto px-6">
+            <div className="flex-1 overflow-y-auto px-6 min-h-0">
               <div className="space-y-6 pb-6">
                 <section className="space-y-3">
                   <div className="text-sm text-muted-foreground">标题</div>
@@ -154,19 +150,12 @@ export function TodoDetailDialog({
 
                 <section className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="priority">优先级</Label>
-                    <Input
-                      id="priority"
-                      type="number"
-                      min={0}
-                      max={9}
-                      step={1}
+                    <Label>优先级</Label>
+                    <TodoPriorityPicker
                       value={priority}
-                      onChange={(event) => setPriority(event.target.value)}
-                      placeholder="0-9"
+                      onChange={setPriority}
                       disabled={busy}
                     />
-                    <p className="text-xs text-muted-foreground">当前：{priorityLabel}</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="timezone">时区</Label>
@@ -284,14 +273,14 @@ export function TodoDetailDialog({
               </div>
             </div>
           ) : (
-            <div className="flex flex-1 items-center justify-center px-6 pb-6">
+            <div className="flex flex-1 items-center justify-center px-6 pb-6 min-h-0">
               <div className="w-full rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">
                 请选择一个待办以查看详情
               </div>
             </div>
           )}
 
-          <DialogFooter className="border-t px-6 py-4">
+          <DialogFooter className="border-t px-6 py-4 flex-shrink-0">
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
               取消
             </Button>

@@ -158,12 +158,12 @@ export function TodoDueDatePicker({
       )}
 
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="max-h-[calc(100vh-2rem)] max-w-sm overflow-hidden p-0 sm:max-h-[calc(100vh-4rem)]">
-          <div className="flex h-full flex-col">
-            <DialogHeader className="px-6 pt-6">
+        <DialogContent className="max-h-[calc(100vh-2rem)] max-w-[calc(100%-2rem)] overflow-hidden p-0 sm:max-h-[calc(100vh-4rem)] sm:max-w-sm md:max-w-[calc(100%-4rem)]">
+          <div className="flex h-full max-h-[calc(100vh-2rem)] flex-col sm:max-h-[calc(100vh-4rem)]">
+            <DialogHeader className="px-6 pt-6 flex-shrink-0">
               <DialogTitle>设置到期时间</DialogTitle>
             </DialogHeader>
-            <div className="flex-1 overflow-y-auto px-6">
+            <div className="flex-1 overflow-y-auto px-6 min-h-0">
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
                   <Label htmlFor="time-picker" className="text-sm">
@@ -206,7 +206,7 @@ export function TodoDueDatePicker({
                 </div>
               </div>
             </div>
-            <div className="flex gap-2 border-t px-6 py-4">
+            <div className="flex gap-2 border-t px-6 py-4 flex-shrink-0">
               <Button
                 variant="outline"
                 className="flex-1"

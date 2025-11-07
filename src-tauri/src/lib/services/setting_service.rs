@@ -1,7 +1,5 @@
 use anyhow::Result;
-use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set,
-};
+use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
 
 use super::super::entities::prelude::Setting as SettingEntity;
 use super::super::entities::setting;
@@ -26,7 +24,9 @@ impl SettingService {
         key: &str,
         default: &str,
     ) -> Result<String> {
-        Ok(Self::get(db, key).await?.unwrap_or_else(|| default.to_string()))
+        Ok(Self::get(db, key)
+            .await?
+            .unwrap_or_else(|| default.to_string()))
     }
 
     /// 设置值
