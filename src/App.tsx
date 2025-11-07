@@ -2,11 +2,10 @@ import "./App.css";
 
 import { useCallback, useMemo, useState } from "react";
 
-import { CalDavSettings } from "@/components/app/caldav-settings";
-import { TodoHeader, FocusTimer } from "@/components/app";
+import { CalDavSettings, ExternalApiToggle, TodoHeader, FocusTimer } from "@/components/app";
 import { TodoDetailDialog } from "@/components/todo/todo-detail-dialog";
 import { TodoList } from "@/components/todo/todo-list";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useTodoManager } from "@/features/todo/use-todo-manager";
 import { useWebServerControl } from "@/features/webserver/use-web-server-control";
 import { CheckCircle2, Clock, BarChart3, Settings } from "lucide-react";
@@ -68,13 +67,6 @@ function App() {
               onCreateTodo={() => {
                 void createTodo();
               }}
-              isServerRunning={isServerRunning}
-              isServerBusy={isServerBusy}
-              isPlatformSupported={isPlatformSupported}
-              statusMessage={statusMessage}
-              onToggleApi={(nextEnabled) => {
-                void toggleApi(nextEnabled);
-              }}
             />
           )}
           <CardContent className="pb-6">
@@ -101,8 +93,25 @@ function App() {
             )}
             {currentPage === "settings" && (
               <div className="space-y-6">
-                <CalDavSettings />
-                <div className="py-12 text-center text-muted-foreground">更多设置项（开发中）</div>
+                {/* CalDav 同步设置 */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">日历同步</h3>
+                  <CalDavSettings />
+                </div>
+
+                {/* Websocket API 设置 */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">外部API</h3>
+                  <ExternalApiToggle
+                    isRunning={isServerRunning}
+                    isBusy={isServerBusy}
+                    isPlatformSupported={isPlatformSupported}
+                    statusMessage={statusMessage}
+                    onToggle={(nextEnabled) => {
+                      void toggleApi(nextEnabled);
+                    }}
+                  />
+                </div>
               </div>
             )}
           </CardContent>

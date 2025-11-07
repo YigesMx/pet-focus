@@ -9,3 +9,4 @@
 export { TodoHeader } from "./todo-header";
 export { ExternalApiToggle } from "./external-api-toggle";
 export { FocusTimer } from "./focus-timer";
+export { CalDavSettings } from "./caldav-settings";
