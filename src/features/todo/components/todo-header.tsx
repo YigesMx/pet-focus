@@ -1,12 +1,12 @@
-import { Plus, Loader2 } from "lucide-react";
+import { Loader2, Plus } from "lucide-react"
 
-import { Button } from "@/components/ui/button";
-import { CardAction, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button"
+import { CardAction, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 type TodoHeaderProps = {
-  isCreating: boolean;
-  onCreateTodo: () => void;
-};
+  isCreating: boolean
+  onCreateTodo: () => void
+}
 
 export function TodoHeader({
   isCreating,
@@ -29,5 +29,5 @@ export function TodoHeader({
         </Button>
       </CardAction>
     </CardHeader>
-  );
+  )
 }

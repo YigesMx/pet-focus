@@ -173,6 +173,8 @@ pub fn run() {
             lib::commands::save_caldav_config,
             lib::commands::clear_caldav_config,
             lib::commands::sync_caldav_now,
+            lib::commands::get_theme_preference,
+            lib::commands::set_theme_preference,
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
             lib::commands::start_web_server,
             #[cfg(not(any(target_os = "android", target_os = "ios")))]

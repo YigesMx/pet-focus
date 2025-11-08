@@ -14,10 +14,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
-import { TodoDueDatePicker } from "@/components/todo/todo-due-date-picker"
-import { TodoPriorityPicker } from "@/components/todo/todo-priority-picker"
-import type { Todo } from "@/types/todo"
-import type { TodoDetailUpdate } from "@/lib/todo-api"
+import { TodoDueDatePicker } from "@/features/todo/components/todo-due-date-picker"
+import { TodoPriorityPicker } from "@/features/todo/components/todo-priority-picker"
+import type { Todo, TodoDetailUpdate } from "@/features/todo/types/todo.types"
 
 interface TodoDetailDialogProps {
   todo: Todo | null
@@ -151,11 +150,7 @@ export function TodoDetailDialog({
                 <section className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>优先级</Label>
-                    <TodoPriorityPicker
-                      value={priority}
-                      onChange={setPriority}
-                      disabled={busy}
-                    />
+                    <TodoPriorityPicker value={priority} onChange={setPriority} disabled={busy} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="timezone">时区</Label>

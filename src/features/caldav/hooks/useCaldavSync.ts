@@ -11,8 +11,8 @@ import {
   type CalDavConfigInput,
   type CalDavStatus,
   type CalDavSyncEvent,
-} from "@/lib/caldav-api"
-import { reportError } from "@/lib/report-error"
+} from "@/features/caldav/api/caldav.api"
+import { reportError } from "@/shared/lib/report-error"
 
 export function useCaldavSync() {
   const [status, setStatus] = useState<CalDavStatus | null>(null)

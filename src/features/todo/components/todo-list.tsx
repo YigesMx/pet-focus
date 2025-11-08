@@ -1,7 +1,8 @@
 import { ListTodo, Loader2 } from "lucide-react"
 
-import { TodoItem } from "@/components/todo/todo-item"
-import type { Todo } from "@/types/todo"
+import type { Todo } from "@/features/todo/types/todo.types"
+
+import { TodoItem } from "./todo-item"
 
 type TodoListProps = {
   todos: Todo[]

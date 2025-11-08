@@ -1,4 +1,5 @@
 import { useMemo } from "react"
+
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface TodoPriorityPickerProps {
@@ -14,22 +15,14 @@ const PRIORITY_OPTIONS = [
   { label: "高", value: 1 },
 ] as const
 
-/**
- * 将任意优先级值映射到最接近的选项值
- * 用于显示时确定应该激活哪个 tab
- */
 function getNearestPriorityValue(priority: number | null): string {
   if (priority === null || priority === undefined) return "none"
-  
-  // 精确匹配
   if (priority === 1) return "1"
   if (priority === 5) return "5"
   if (priority === 9) return "9"
-  
-  // 找到最接近的值
-  if (priority <= 3) return "1" // 1-3 显示为"高"
-  if (priority <= 7) return "5" // 4-7 显示为"中"
-  return "9" // 8-9 显示为"低"
+  if (priority <= 3) return "1"
+  if (priority <= 7) return "5"
+  return "9"
 }
 
 export function TodoPriorityPicker({
@@ -37,16 +30,13 @@ export function TodoPriorityPicker({
   onChange,
   disabled = false,
 }: TodoPriorityPickerProps) {
-  // 计算当前应该显示的 tab 值
-  const displayValue = useMemo(() => {
-    return getNearestPriorityValue(value)
-  }, [value])
+  const displayValue = useMemo(() => getNearestPriorityValue(value), [value])
 
-  const handleValueChange = (newValue: string) => {
-    if (newValue === "none") {
+  const handleValueChange = (nextValue: string) => {
+    if (nextValue === "none") {
       onChange(null)
     } else {
-      onChange(Number(newValue))
+      onChange(Number(nextValue))
     }
   }
 

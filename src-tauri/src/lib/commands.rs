@@ -15,6 +15,7 @@ use crate::AppState;
 
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 const WEBSERVER_STATUS_CHANGED_EVENT: &str = "webserver-status-changed";
+const THEME_DEFAULT: &str = "system";
 
 #[derive(Debug, Default, Deserialize)]
 pub struct CreateTodoPayload {
@@ -59,6 +60,11 @@ pub struct CalDavStatus {
     pub last_sync_at: Option<String>,
     pub last_error: Option<String>,
     pub syncing: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ThemePreference {
+    pub theme: String,
 }
 
 #[tauri::command]
@@ -196,6 +202,35 @@ pub async fn sync_caldav_now(state: State<'_, AppState>) -> Result<CalDavSyncEve
         .map_err(|err| err.to_string())
 }
 
+#[tauri::command]
+pub async fn get_theme_preference(state: State<'_, AppState>) -> Result<ThemePreference, String> {
+    let stored = SettingService::get_or_default(state.db(), "ui.theme", THEME_DEFAULT)
+        .await
+        .map_err(|err| err.to_string())?;
+
+    let normalized = normalize_theme(&stored).to_string();
+
+    if normalized != stored {
+        let _ = SettingService::set(state.db(), "ui.theme", &normalized).await;
+    }
+
+    Ok(ThemePreference { theme: normalized })
+}
+
+#[tauri::command]
+pub async fn set_theme_preference(
+    state: State<'_, AppState>,
+    theme: String,
+) -> Result<ThemePreference, String> {
+    let normalized = normalize_theme(&theme).to_string();
+
+    SettingService::set(state.db(), "ui.theme", &normalized)
+        .await
+        .map_err(|err| err.to_string())?;
+
+    Ok(ThemePreference { theme: normalized })
+}
+
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 #[tauri::command]
 pub async fn start_web_server(state: State<'_, AppState>) -> Result<WebServerStatus, String> {
@@ -248,6 +283,14 @@ pub async fn stop_web_server(state: State<'_, AppState>) -> Result<WebServerStat
 #[tauri::command]
 pub async fn web_server_status(state: State<'_, AppState>) -> Result<WebServerStatus, String> {
     Ok(state.web_server().status().await)
+}
+
+fn normalize_theme(value: &str) -> &'static str {
+    match value {
+        "light" => "light",
+        "dark" => "dark",
+        _ => THEME_DEFAULT,
+    }
 }
 
 async fn caldav_status(state: &AppState) -> Result<CalDavStatus, String> {

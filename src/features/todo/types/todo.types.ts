@@ -28,3 +28,16 @@ export interface Todo {
   created_at: string
   updated_at: string
 }
+
+export type TodoDetailUpdate = {
+  description: string | null
+  priority: number | null
+  location: string | null
+  tags: string[]
+  start_at?: string | null
+  due_date: string | null
+  recurrence_rule: string | null
+  reminder_offset_minutes: number | null
+  reminder_method: string | null
+  timezone: string | null
+}

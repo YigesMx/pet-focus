@@ -1,16 +1,17 @@
-import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react"
+
+import { Checkbox } from "@/components/ui/checkbox"
 
 type ExternalApiToggleProps = {
-  isRunning: boolean;
-  isBusy: boolean;
-  isPlatformSupported: boolean;
-  statusMessage: string;
-  onToggle: (nextEnabled: boolean) => void;
-};
+  isRunning: boolean
+  isBusy: boolean
+  isPlatformSupported: boolean
+  statusMessage: string
+  onToggle: (nextEnabled: boolean) => void
+}
 
 export function ExternalApiToggle({ isRunning, isBusy, isPlatformSupported, statusMessage, onToggle }: ExternalApiToggleProps) {
-  const isDisabled = isBusy || !isPlatformSupported;
+  const isDisabled = isBusy || !isPlatformSupported
 
   return (
     <div className="flex items-start gap-3">
@@ -20,10 +21,10 @@ export function ExternalApiToggle({ isRunning, isBusy, isPlatformSupported, stat
           checked={isRunning}
           disabled={isDisabled}
           onCheckedChange={(checked) => {
-            if (isDisabled) return;
-            const nextEnabled = checked === true;
-            if (nextEnabled === isRunning) return;
-            onToggle(nextEnabled);
+            if (isDisabled) return
+            const nextEnabled = checked === true
+            if (nextEnabled === isRunning) return
+            onToggle(nextEnabled)
           }}
           aria-label="Toggle Websocket API"
         />
@@ -36,5 +37,5 @@ export function ExternalApiToggle({ isRunning, isBusy, isPlatformSupported, stat
       </div>
       {isBusy && <Loader2 className="mt-1 size-4 animate-spin text-muted-foreground" aria-hidden="true" />}
     </div>
-  );
+  )
 }

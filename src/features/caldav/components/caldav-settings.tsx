@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useCaldavSync } from "@/features/caldav/use-caldav-sync"
-import { formatDateTime } from "@/lib/utils"
+import { useCaldavSync } from "@/features/caldav/hooks/useCaldavSync"
+import { formatDateTime } from "@/shared/lib/utils"
 
 export function CalDavSettings() {
   const {

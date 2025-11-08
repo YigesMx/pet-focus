@@ -1,23 +1,10 @@
 import { invoke } from "@tauri-apps/api/core"
 
-import type { Todo } from "@/types/todo"
+import type { Todo, TodoDetailUpdate } from "@/features/todo/types/todo.types"
 
 type UpdatePayload = {
   title?: string
   completed?: boolean
-}
-
-export type TodoDetailUpdate = {
-  description: string | null
-  priority: number | null
-  location: string | null
-  tags: string[]
-  start_at?: string | null
-  due_date: string | null
-  recurrence_rule: string | null
-  reminder_offset_minutes: number | null
-  reminder_method: string | null
-  timezone: string | null
 }
 
 export async function listTodos(): Promise<Todo[]> {

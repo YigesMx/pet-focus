@@ -12,8 +12,9 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Item, ItemContent } from "@/components/ui/item"
 import { Textarea } from "@/components/ui/textarea"
-import { cn } from "@/lib/utils"
-import type { Todo } from "@/types/todo"
+import { cn } from "@/shared/lib/utils"
+
+import type { Todo } from "@/features/todo/types/todo.types"
 
 type TodoItemProps = {
   todo: Todo
@@ -108,7 +109,7 @@ export function TodoItem({
             placeholder="记录你的待办事项"
             className={cn(
               "min-h-[2.5rem] flex-1 resize-none bg-transparent shadow-none",
-              todo.completed && "text-muted-foreground line-through"
+              todo.completed && "text-muted-foreground line-through",
             )}
             rows={1}
           />
@@ -126,7 +127,7 @@ export function TodoItem({
         <div className="flex items-center justify-end gap-3 text-sm text-muted-foreground">
           <span
             className={cn(
-              todo.notified && !todo.completed && "text-destructive font-medium"
+              todo.notified && !todo.completed && "text-destructive font-medium",
             )}
           >
             {dueLabel ? `到期：${dueLabel}` : "未设置到期时间"}
