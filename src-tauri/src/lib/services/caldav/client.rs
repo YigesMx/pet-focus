@@ -82,6 +82,9 @@ pub struct CalDavClient {
 impl CalDavClient {
     pub fn new(config: &CalDavConfig) -> Result<Self> {
         let normalized_url = format!("{}/", config.url.trim_end_matches('/'));
+        eprintln!("[CalDAV] Creating client with URL: {}", normalized_url);
+        eprintln!("[CalDAV] Username: {}", config.username);
+        
         let calendar_url = Url::parse(&normalized_url).context("invalid CalDAV calendar URL")?;
 
         let http = Client::builder()
@@ -104,6 +107,9 @@ impl CalDavClient {
     }
 
     pub async fn fetch_todos(&self) -> Result<Vec<RemoteTodo>> {
+        eprintln!("[CalDAV] Fetching todos from: {}", self.calendar_url);
+        eprintln!("[CalDAV] Username: {}", self.username);
+        
         let method = Method::from_bytes(b"REPORT")
             .map_err(|err| anyhow!("failed to create REPORT method: {err}"))?;
 
@@ -115,6 +121,7 @@ impl CalDavClient {
             (header::HeaderName::from_static("depth"), "1".to_string()),
         ];
 
+        eprintln!("[CalDAV] Sending REPORT request...");
         let response = self
             .send_authenticated_request(
                 method,
@@ -124,9 +131,12 @@ impl CalDavClient {
             )
             .await?;
 
-        if !response.status().is_success() {
-            let status = response.status();
+        let status = response.status();
+        eprintln!("[CalDAV] Response status: {}", status);
+        
+        if !status.is_success() {
             let text = response.text().await.unwrap_or_default();
+            eprintln!("[CalDAV] Error response body: {}", text);
             return Err(anyhow!("CalDAV REPORT failed: {status} {text}"));
         }
 
@@ -225,6 +235,8 @@ impl CalDavClient {
         headers: &[(header::HeaderName, String)],
         body: Option<&str>,
     ) -> Result<reqwest::Response> {
+        eprintln!("[CalDAV Auth] Sending request: {} {}", method, url);
+        
         let request = self.build_request(method.clone(), url, headers, body, None)?;
         let mut response = self
             .http
@@ -232,8 +244,15 @@ impl CalDavClient {
             .await
             .with_context(|| format!("failed to execute {method} {url}"))?;
 
-        if response.status() == StatusCode::UNAUTHORIZED {
+        let status = response.status();
+        eprintln!("[CalDAV Auth] Initial response status: {}", status);
+        
+        if status == StatusCode::UNAUTHORIZED {
+            eprintln!("[CalDAV Auth] Got 401, attempting digest authentication...");
             let challenge = self.extract_digest_challenge(&response)?;
+            eprintln!("[CalDAV Auth] Digest challenge: realm={}, nonce={}", 
+                challenge.realm, challenge.nonce);
+            
             let uri = request_uri(url);
             let digest_header = self.build_digest_authorization(&challenge, &method, &uri, body)?;
             let retry_request =
@@ -242,12 +261,22 @@ impl CalDavClient {
                 format!("failed to execute digest-authenticated {method} {url}")
             })?;
 
-            if response.status() == StatusCode::UNAUTHORIZED {
+            let retry_status = response.status();
+            eprintln!("[CalDAV Auth] Retry response status: {}", retry_status);
+            
+            if retry_status == StatusCode::UNAUTHORIZED {
                 let text = response.text().await.unwrap_or_default();
+                eprintln!("[CalDAV Auth] Authentication failed after retry: {}", text);
                 return Err(anyhow!(
                     "CalDAV credentials rejected with 401 Unauthorized: {text}"
                 ));
             }
+        }
+        
+        if status == StatusCode::FORBIDDEN {
+            let text = response.text().await.unwrap_or_default();
+            eprintln!("[CalDAV Auth] Got 403 Forbidden: {}", text);
+            return Err(anyhow!("CalDAV request forbidden (403): {text}"));
         }
 
         Ok(response)
