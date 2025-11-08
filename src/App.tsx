@@ -2,8 +2,8 @@ import "./App.css";
 
 import { useState } from "react";
 
-import { BottomNav } from "@/components/app/bottom-nav";
-import { FocusPage, SettingsPage, StatsPage, TodosPage, type Page } from "@/pages";
+import { BottomNav } from "@/app/navigation/bottom-nav";
+import { FocusPage, SettingsPage, StatsPage, TodosPage, type Page } from "@/app/pages";
 
 function App() {
   const [currentPage, setCurrentPage] = useState<Page>("todos");
@@ -24,9 +24,11 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <div className="flex-1 mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 py-10">
+    <div className="flex h-dvh flex-col overflow-hidden bg-background">
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 py-10 pb-24">
         {renderPage()}
+        </div>
       </div>
 
       <BottomNav currentPage={currentPage} onSelect={setCurrentPage} />

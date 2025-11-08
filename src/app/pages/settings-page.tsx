@@ -1,8 +1,8 @@
 import { Card, CardContent } from "@/components/ui/card"
-import { ExternalApiToggle } from "@/features/webserver/components/external-api-toggle"
-import { useWebServerControl } from "@/features/webserver/hooks/useWebServerControl"
 import { CalDavSettings } from "@/features/caldav/components/caldav-settings"
 import { ThemePreferenceSelector } from "@/features/settings/components/theme-preference"
+import { ExternalApiToggle } from "@/features/webserver/components/external-api-toggle"
+import { useWebServerControl } from "@/features/webserver/hooks/useWebServerControl"
 
 export function SettingsPage() {
   const { isServerRunning, isServerBusy, isPlatformSupported, statusMessage, toggleApi } =

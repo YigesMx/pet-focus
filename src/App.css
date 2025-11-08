@@ -184,7 +184,11 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground overflow-hidden overscroll-none;
     letter-spacing: var(--tracking-normal);
+  }
+  #root {
+    min-height: 100vh;
+    height: 100dvh;
   }
 }

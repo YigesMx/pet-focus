@@ -1,7 +1,7 @@
 import { type ReactNode } from "react"
 import { CheckCircle2, Clock, BarChart3, Settings } from "lucide-react"
 
-import type { Page } from "@/pages"
+import type { Page } from "@/app/pages"
 
 const NAV_ITEMS: Array<{ page: Page; label: string; icon: ReactNode }> = [
   { page: "todos", label: "待办", icon: <CheckCircle2 className="size-5" aria-hidden="true" /> },
