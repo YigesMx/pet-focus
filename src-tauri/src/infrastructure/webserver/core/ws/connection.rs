@@ -6,7 +6,7 @@ use std::{
 use axum::extract::ws::Message;
 use tokio::sync::{mpsc, RwLock};
 
-use crate::infrastructure::webserver::message::WsMessage;
+use super::protocol::WsMessage;
 
 pub type ConnectionId = String;
 pub type ChannelName = String;

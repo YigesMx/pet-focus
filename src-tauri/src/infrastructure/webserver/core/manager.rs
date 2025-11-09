@@ -17,13 +17,12 @@ use tokio::{
     sync::{oneshot, Mutex},
 };
 
-use crate::infrastructure::webserver::{
-    connection::ConnectionManager,
-    context::ApiContext,
-    registry::HandlerRegistry,
+use super::{
+    config::{WebServerConfig, WebServerStatus},
     router::build_router,
-    types::{WebServerConfig, WebServerStatus},
+    ws::{ApiContext, ConnectionManager},
 };
+use crate::infrastructure::webserver::api::HandlerRegistry;
 
 #[derive(Clone)]
 pub struct WebServerManager {

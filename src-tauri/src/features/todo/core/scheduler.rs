@@ -3,15 +3,16 @@ use chrono::{DateTime, Utc};
 use sea_orm::DatabaseConnection;
 use tokio::sync::{mpsc, RwLock};
 
-use crate::infrastructure::notification::{NotificationManager, WebSocketNotification};
+use crate::infrastructure::notification::NotificationManager;
 use super::service;
+use crate::features::todo::api::notifications;
 
 /// 到期提醒调度器
 /// 
 /// 工作流程：
 /// 1. 找到最近需要提醒的 Todo（due_date - reminder_offset_minutes 最早的）
 /// 2. 等待到提醒时间点
-/// 3. 发送 WebSocket 提醒通知
+/// 3. 发送统一通知（Toast + WebSocket）
 /// 4. 标记为已提醒（更新 reminder_last_triggered_at）
 /// 5. 自动 reschedule 找下一个需要提醒的 Todo
 pub struct DueNotificationScheduler {
@@ -34,7 +35,10 @@ impl Clone for DueNotificationScheduler {
 
 impl DueNotificationScheduler {
     /// 创建新的调度器
-    pub fn new(db: DatabaseConnection, notification_manager: Arc<NotificationManager>) -> Self {
+    pub fn new(
+        db: DatabaseConnection, 
+        notification_manager: Arc<NotificationManager>,
+    ) -> Self {
         let (reschedule_tx, mut reschedule_rx) = mpsc::channel::<()>(32);
         let next_reminder = Arc::new(RwLock::new(None::<(i32, DateTime<Utc>)>));
 
@@ -143,29 +147,9 @@ impl DueNotificationScheduler {
             // 获取 Todo 详情
             let todo = service::get_todo_by_id(&self.db, todo_id).await?;
             
-            // WebSocket 通知 - 使用注册的 "todo.due" 事件
-            let notification = WebSocketNotification::new(
-                "todo.due",
-                serde_json::json!({
-                    "id": todo.id,
-                    "title": todo.title,
-                    "description": todo.description,
-                    "due_date": todo.due_date,
-                    "priority": todo.priority,
-                }),
-            );
-            
-            if let Err(e) = self.notification_manager.send_websocket(&notification) {
-                eprintln!("[Scheduler] WebSocket 提醒发送失败 (Todo#{}): {}", todo_id, e);
-            } else {
-                println!("[Scheduler] WebSocket 提醒已发送 (Todo#{})", todo_id);
-            }
-            
-            // Toast 通知 (用户界面)
-            crate::features::todo::api::notifications::notify_todo_due(
-                &self.notification_manager, 
-                &todo.title
-            );
+            // 统一发送 Toast + WebSocket 通知
+            notifications::notify_todo_due(&self.notification_manager, todo.id, &todo.title);
+            println!("[Scheduler] 通知已发送 (Todo#{})", todo_id);
             
             // 标记为已提醒
             service::mark_todo_reminded(&self.db, todo_id).await?;

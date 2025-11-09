@@ -155,11 +155,11 @@ pub fn run() {
             
             // WebServer Commands (Desktop only)
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
-            infrastructure::webserver::commands::start_web_server,
+            infrastructure::webserver::api::commands::start_web_server,
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
-            infrastructure::webserver::commands::stop_web_server,
+            infrastructure::webserver::api::commands::stop_web_server,
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
-            infrastructure::webserver::commands::web_server_status,
+            infrastructure::webserver::api::commands::web_server_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

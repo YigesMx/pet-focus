@@ -1,8 +1,8 @@
 use tauri::{Emitter, State};
 
 use crate::core::AppState;
-use crate::infrastructure::webserver::types::WebServerStatus;
 use crate::features::settings::core::service::SettingService;
+use crate::infrastructure::webserver::core::WebServerStatus;
 
 const WEBSERVER_STATUS_CHANGED_EVENT: &str = "webserver-status-changed";
 

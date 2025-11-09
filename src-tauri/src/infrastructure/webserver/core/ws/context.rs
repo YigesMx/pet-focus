@@ -1,7 +1,7 @@
 use sea_orm::DatabaseConnection;
 use tauri::{AppHandle, Wry};
 
-use crate::infrastructure::webserver::connection::ConnectionManager;
+use super::connection::ConnectionManager;
 
 /// WebSocket API 上下文
 /// 

@@ -1,8 +1,4 @@
-use std::sync::Arc;
-
 use tauri::{AppHandle, Emitter, Manager};
-
-use super::WebSocketNotification;
 
 /// 通知管理器
 /// 
@@ -28,42 +24,34 @@ impl NotificationManager {
         Self { app_handle }
     }
 
-    /// 发送 WebSocket 通知
+    /// 发送 WebSocket 事件通知
     /// 
-    /// 用于通过 WebSocket 向外部 API 客户端广播通知
+    /// 用于通过 WebSocket 向外部 API 客户端广播事件
     /// 
-    /// 注意：这会通过 WebServer 的 ConnectionManager 广播到订阅了该事件的所有客户端
-    pub fn send_websocket(&self, notification: &WebSocketNotification) -> anyhow::Result<()> {
-        // 克隆需要的数据以满足 'static 生命周期要求
-        let event = notification.event.clone();
-        let payload = notification.payload.clone();
+    /// 注意：
+    /// - 如果 WebServer 未启动，此方法会静默失败（不会抛出错误）
+    /// - 这是合理的设计，因为外部客户端连接是可选的
+    fn send_websocket_internal(
+        &self,
+        channel: String,
+        payload: serde_json::Value,
+    ) {
         let app_handle = self.app_handle.clone();
         
         // 尝试获取 AppState 中的 WebServer ConnectionManager
         if let Some(state) = app_handle.try_state::<crate::core::AppState>() {
+            #[cfg(not(any(target_os = "android", target_os = "ios")))]
             if let Some(webserver) = state.webserver_manager().get_connection_manager() {
                 // 通过 WebServer 的 ConnectionManager 广播
                 let message = crate::infrastructure::webserver::WsMessage::event(
-                    event.clone(),
+                    channel.clone(),
                     payload,
                 );
                 
                 tauri::async_runtime::spawn(async move {
-                    webserver.broadcast_to_channel(&event, message).await;
+                    webserver.broadcast_to_channel(&channel, message).await;
                 });
-                
-                Ok(())
-            } else {
-                // WebServer 未运行，降级为 Tauri Event
-                eprintln!("WebServer not running, falling back to Tauri Event for notification: {}", event);
-                let notification_copy = WebSocketNotification { event, payload };
-                notification_copy.send(&app_handle)
             }
-        } else {
-            // 无法获取 AppState，降级为 Tauri Event
-            eprintln!("Cannot access AppState, falling back to Tauri Event for notification: {}", event);
-            let notification_copy = WebSocketNotification { event, payload };
-            notification_copy.send(&app_handle)
         }
     }
 
@@ -87,6 +75,40 @@ impl NotificationManager {
     pub fn send_native(&self, _title: String, _body: String) -> anyhow::Result<()> {
         // TODO: 使用 tauri-plugin-notification 实现
         Ok(())
+    }
+
+    /// 同时发送 Toast 和 WebSocket 通知
+    /// 
+    /// 这是推荐的通知方式：
+    /// - Toast: 前端用户看到 Sonner 提示
+    /// - WebSocket: 外部 API 客户端收到事件推送（如果 WebServer 正在运行）
+    pub fn notify(
+        &self,
+        toast_message: String,
+        toast_level: ToastLevel,
+        ws_channel: String,
+        ws_payload: serde_json::Value,
+    ) -> anyhow::Result<()> {
+        // 发送 Toast
+        self.send_toast(toast_message, toast_level)?;
+        
+        // 发送 WebSocket（静默失败，不影响主流程）
+        self.send_websocket_internal(ws_channel, ws_payload);
+        
+        Ok(())
+    }
+
+    /// 仅发送 WebSocket 事件通知（不显示 Toast）
+    /// 
+    /// 用于纯数据变更通知，不需要用户界面提示的场景
+    /// 
+    /// 注意：如果 WebServer 未启动，此方法会静默失败
+    pub fn send_websocket_event(
+        &self,
+        channel: String,
+        payload: serde_json::Value,
+    ) {
+        self.send_websocket_internal(channel, payload);
     }
 }
 

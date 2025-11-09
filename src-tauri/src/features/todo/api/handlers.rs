@@ -2,18 +2,16 @@ use anyhow::Context;
 use serde_json::{json, Value};
 use tauri::Manager;
 
-use crate::infrastructure::webserver::{HandlerRegistry, WsMessage};
+use crate::infrastructure::webserver;
 
 use super::notifications;
 use crate::features::todo::core::service;
 
-const TODO_CHANGES_CHANNEL: &str = "todo-changes";
-const TODO_DUE_EVENT: &str = "todo.due";
-
 /// 注册 Todo Feature 的所有 WebSocket handlers
-pub fn register_handlers(registry: &mut HandlerRegistry) {
-    // 注册事件
-    registry.register_event(TODO_DUE_EVENT, "Todo 到期提醒事件 - 当待办事项到期时广播");
+pub fn register_handlers(registry: &mut webserver::HandlerRegistry) {
+    // 注册可订阅的事件
+    registry.register_event(notifications::TODO_DUE_EVENT, "Todo 到期提醒事件 - 当待办事项到期时广播");
+    registry.register_event(notifications::TODO_CHANGES_EVENT, "Todo 数据变更事件 - 创建/更新/删除时广播");
     
     // 列出所有待办
     registry.register_call("todo.list", |_method, _params, ctx| {
@@ -53,20 +51,6 @@ pub fn register_handlers(registry: &mut HandlerRegistry) {
                 .await
                 .context("Failed to create todo")?;
 
-            // 通过 WebSocket 广播变更通知（给外部 WS 客户端）
-            ctx.connection_manager()
-                .broadcast_to_channel(
-                    &TODO_CHANGES_CHANNEL.to_string(),
-                    WsMessage::event(
-                        TODO_CHANGES_CHANNEL.to_string(),
-                        json!({
-                            "action": "created",
-                            "todo_id": todo.id,
-                        }),
-                    ),
-                )
-                .await;
-
             // 同时通过 Tauri Event 通知前端（给内置前端）
             use tauri::Emitter;
             let _ = ctx.app_handle().emit(
@@ -78,9 +62,9 @@ pub fn register_handlers(registry: &mut HandlerRegistry) {
                 }),
             );
 
-            // 发送 Toast 通知 & 触发调度器重新规划
+            // 发送 Toast + WebSocket 通知 & 触发调度器重新规划
             if let Some(state) = ctx.app_handle().try_state::<crate::core::AppState>() {
-                notifications::notify_todo_created(state.notification(), &todo.title);
+                notifications::notify_todo_created(state.notification(), todo.id, &todo.title);
                 
                 // 触发调度器重新规划提醒
                 if let Some(scheduler) = state.todo_scheduler() {
@@ -107,20 +91,6 @@ pub fn register_handlers(registry: &mut HandlerRegistry) {
                 .await
                 .context("Failed to update todo")?;
 
-            // 通过 WebSocket 广播变更通知（给外部 WS 客户端）
-            ctx.connection_manager()
-                .broadcast_to_channel(
-                    &TODO_CHANGES_CHANNEL.to_string(),
-                    WsMessage::event(
-                        TODO_CHANGES_CHANNEL.to_string(),
-                        json!({
-                            "action": "updated",
-                            "todo_id": id,
-                        }),
-                    ),
-                )
-                .await;
-
             // 同时通过 Tauri Event 通知前端（给内置前端）
             use tauri::Emitter;
             let _ = ctx.app_handle().emit(
@@ -132,9 +102,9 @@ pub fn register_handlers(registry: &mut HandlerRegistry) {
                 }),
             );
 
-            // 发送 Toast 通知 & 触发调度器重新规划
+            // 发送 Toast + WebSocket 通知 & 触发调度器重新规划
             if let Some(state) = ctx.app_handle().try_state::<crate::core::AppState>() {
-                notifications::notify_todo_updated(state.notification(), &todo.title);
+                notifications::notify_todo_updated(state.notification(), id, &todo.title);
                 
                 // 触发调度器重新规划提醒
                 if let Some(scheduler) = state.todo_scheduler() {
@@ -158,20 +128,6 @@ pub fn register_handlers(registry: &mut HandlerRegistry) {
                 .await
                 .context("Failed to delete todo")?;
 
-            // 通过 WebSocket 广播变更通知（给外部 WS 客户端）
-            ctx.connection_manager()
-                .broadcast_to_channel(
-                    &TODO_CHANGES_CHANNEL.to_string(),
-                    WsMessage::event(
-                        TODO_CHANGES_CHANNEL.to_string(),
-                        json!({
-                            "action": "deleted",
-                            "todo_id": id,
-                        }),
-                    ),
-                )
-                .await;
-
             // 同时通过 Tauri Event 通知前端（给内置前端）
             use tauri::Emitter;
             let _ = ctx.app_handle().emit(
@@ -183,9 +139,9 @@ pub fn register_handlers(registry: &mut HandlerRegistry) {
                 }),
             );
 
-            // 发送 Toast 通知 & 触发调度器重新规划
+            // 发送 Toast + WebSocket 通知 & 触发调度器重新规划
             if let Some(state) = ctx.app_handle().try_state::<crate::core::AppState>() {
-                notifications::notify_todo_deleted(state.notification());
+                notifications::notify_todo_deleted(state.notification(), id);
                 
                 // 触发调度器重新规划提醒
                 if let Some(scheduler) = state.todo_scheduler() {
@@ -280,20 +236,6 @@ pub fn register_handlers(registry: &mut HandlerRegistry) {
             .await
             .context("Failed to update todo details")?;
 
-            // 通过 WebSocket 广播变更通知（给外部 WS 客户端）
-            ctx.connection_manager()
-                .broadcast_to_channel(
-                    &TODO_CHANGES_CHANNEL.to_string(),
-                    WsMessage::event(
-                        TODO_CHANGES_CHANNEL.to_string(),
-                        json!({
-                            "action": "updated",
-                            "todo_id": id,
-                        }),
-                    ),
-                )
-                .await;
-
             // 同时通过 Tauri Event 通知前端（给内置前端）
             use tauri::Emitter;
             let _ = ctx.app_handle().emit(
@@ -305,9 +247,9 @@ pub fn register_handlers(registry: &mut HandlerRegistry) {
                 }),
             );
 
-            // 发送 Toast 通知 & 触发调度器重新规划
+            // 发送 Toast + WebSocket 通知 & 触发调度器重新规划
             if let Some(state) = ctx.app_handle().try_state::<crate::core::AppState>() {
-                notifications::notify_todo_updated(state.notification(), &todo.title);
+                notifications::notify_todo_updated(state.notification(), id, &todo.title);
                 
                 // 触发调度器重新规划提醒（因为可能修改了提醒相关字段）
                 if let Some(scheduler) = state.todo_scheduler() {
