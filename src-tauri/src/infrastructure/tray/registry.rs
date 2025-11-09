@@ -1,9 +1,8 @@
 use std::sync::Arc;
 
 use tauri::{
-    menu::{Menu, MenuItemKind},
-    tray::TrayIconBuilder,
-    AppHandle, Manager,
+    menu::Menu,
+    AppHandle,
 };
 
 /// 托盘菜单项定义

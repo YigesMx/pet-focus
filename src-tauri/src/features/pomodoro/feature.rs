@@ -4,7 +4,6 @@ use anyhow::Result;
 use async_trait::async_trait;
 
 use crate::core::{AppState, Feature};
-use crate::infrastructure::database::DatabaseRegistry;
 
 /// Pomodoro Feature（预留）
 /// 

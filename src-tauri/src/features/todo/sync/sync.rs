@@ -39,6 +39,7 @@ pub enum SyncOutcome {
         created: usize,
         updated: usize,
         pushed: usize,
+        deleted: usize,
     },
     Skipped {
         reason: String,
@@ -188,6 +189,7 @@ impl CalDavSyncManager {
                 created: summary.created,
                 updated: summary.updated,
                 pushed: summary.pushed,
+                deleted: summary.deleted,
             },
         };
 
@@ -207,8 +209,8 @@ impl CalDavSyncManager {
         // Toast 通知 (用户界面) & 触发调度器重新规划
         if let Some(state) = self.inner.app_handle.try_state::<crate::core::AppState>() {
             match &event.outcome {
-                SyncOutcome::Success { created, updated, pushed, .. } => {
-                    eprintln!("[CalDAV Sync] Success! created={}, updated={}, pushed={}", created, updated, pushed);
+                SyncOutcome::Success { created, updated, pushed, deleted, .. } => {
+                    eprintln!("[CalDAV Sync] Success! created={}, updated={}, pushed={}, deleted={}", created, updated, pushed, deleted);
                     
                     // 通知前端：待办数据已变更，以便前端立即刷新列表
                     eprintln!("[CalDAV Sync] Emitting todo-data-updated event with source=caldav");
@@ -225,7 +227,8 @@ impl CalDavSyncManager {
                         state.notification(),
                         *created,
                         *updated,
-                        *pushed
+                        *pushed,
+                        *deleted
                     );
                     
                     // CalDAV 同步可能修改了待办的提醒时间，需要重新规划

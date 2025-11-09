@@ -1,5 +1,4 @@
-use anyhow::Result;
-use serde_json::{json, Value};
+use serde_json::json;
 
 use crate::infrastructure::webserver::HandlerRegistry;
 use crate::features::window::manager;
@@ -7,7 +6,7 @@ use crate::features::window::manager;
 /// 注册 Window Feature 的所有 WebSocket handlers
 pub fn register_handlers(registry: &mut HandlerRegistry) {
     // 显示主窗口
-    registry.register("window.show", |_method, _params, ctx| {
+    registry.register_call("window.show", |_method, _params, ctx| {
         Box::pin(async move {
             manager::show_main_window(ctx.app_handle())
                 .map_err(|e| anyhow::anyhow!("Failed to show window: {}", e))?;
@@ -16,7 +15,7 @@ pub fn register_handlers(registry: &mut HandlerRegistry) {
     });
 
     // 隐藏主窗口
-    registry.register("window.hide", |_method, _params, ctx| {
+    registry.register_call("window.hide", |_method, _params, ctx| {
         Box::pin(async move {
             manager::hide_main_window(ctx.app_handle())
                 .map_err(|e| anyhow::anyhow!("Failed to hide window: {}", e))?;
@@ -25,7 +24,7 @@ pub fn register_handlers(registry: &mut HandlerRegistry) {
     });
 
     // 切换主窗口显示/隐藏
-    registry.register("window.toggle", |_method, _params, ctx| {
+    registry.register_call("window.toggle", |_method, _params, ctx| {
         Box::pin(async move {
             manager::toggle_main_window(ctx.app_handle())
                 .map_err(|e| anyhow::anyhow!("Failed to toggle window: {}", e))?;

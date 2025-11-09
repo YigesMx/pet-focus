@@ -105,7 +105,6 @@ impl CalDavConfigService {
         Ok(DEFAULT_SYNC_INTERVAL_MINUTES)
     }
 
-    #[allow(dead_code)]
     pub async fn set_sync_interval_minutes(db: &DatabaseConnection, minutes: u64) -> Result<()> {
         let minutes = minutes.max(1);
         SettingService::set(db, SYNC_INTERVAL_KEY, &minutes.to_string()).await?;

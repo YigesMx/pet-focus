@@ -4,4 +4,4 @@ pub mod config;
 pub mod sync;
 
 pub use config::{CalDavConfig, CalDavConfigService};
-pub use sync::{CalDavSyncEvent, CalDavSyncManager, SyncOutcome, SyncReason};
+pub use sync::{CalDavSyncEvent, CalDavSyncManager};

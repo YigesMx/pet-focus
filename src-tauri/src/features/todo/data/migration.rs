@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use sea_orm::{ConnectionTrait, DbBackend, Schema, Statement};
+use sea_orm::{ConnectionTrait, Schema, Statement};
 use sea_orm_migration::prelude::*;
 use sea_orm_migration::MigrationTrait;
 

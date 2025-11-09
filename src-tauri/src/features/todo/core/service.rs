@@ -5,7 +5,7 @@ use chrono::{DateTime, Utc};
 use sea_orm::{
     ActiveModelTrait,
     ActiveValue::{NotSet, Set},
-    ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder,
+    ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
 };
 use uuid::Uuid;
 

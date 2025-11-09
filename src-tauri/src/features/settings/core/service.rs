@@ -1,7 +1,7 @@
 use anyhow::Result;
 use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
 
-use crate::features::settings::data::entity::{self, Entity as SettingEntity, Model};
+use crate::features::settings::data::entity::{self, Entity as SettingEntity};
 
 pub struct SettingService;
 
@@ -67,7 +67,8 @@ impl SettingService {
         Ok(result.rows_affected > 0)
     }
 
-    /// 获取所有设置
+    /// 列出所有设置
+    #[allow(dead_code)]
     pub async fn list(db: &DatabaseConnection) -> Result<Vec<entity::Model>> {
         let settings = SettingEntity::find().all(db).await?;
         Ok(settings.into_iter().map(|s| s.into()).collect())

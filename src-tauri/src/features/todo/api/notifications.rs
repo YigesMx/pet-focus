@@ -72,12 +72,13 @@ pub fn notify_sync_success(
     created: usize,
     updated: usize,
     pushed: usize,
+    deleted: usize,
 ) {
-    if created + updated + pushed > 0 {
+    if created + updated + pushed + deleted > 0 {
         let _ = notification_manager.send_toast(
             format!(
-                "同步完成：新建 {}，更新 {}，推送 {}",
-                created, updated, pushed
+                "同步完成：新建 {}，更新 {}，推送 {}，删除 {}",
+                created, updated, pushed, deleted
             ),
             ToastLevel::Success,
         );

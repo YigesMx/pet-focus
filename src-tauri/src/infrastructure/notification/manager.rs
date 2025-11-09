@@ -71,7 +71,6 @@ impl NotificationManager {
     }
 
     /// 发送 Native 系统通知（预留）
-    #[allow(dead_code)]
     pub fn send_native(&self, _title: String, _body: String) -> anyhow::Result<()> {
         // TODO: 使用 tauri-plugin-notification 实现
         Ok(())

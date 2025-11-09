@@ -3,6 +3,6 @@ pub mod context;
 pub mod handler;
 pub mod protocol;
 
-pub use connection::{ChannelName, Connection, ConnectionId, ConnectionManager};
+pub use connection::ConnectionManager;
 pub use context::ApiContext;
 pub use protocol::WsMessage;
