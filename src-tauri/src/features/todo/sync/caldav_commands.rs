@@ -128,3 +128,34 @@ pub async fn sync_caldav_now(
         .await
         .map_err(|e| e.to_string())
 }
+
+/// 获取 CalDAV 同步间隔（分钟）
+#[tauri::command]
+pub async fn get_caldav_sync_interval(state: State<'_, AppState>) -> Result<u64, String> {
+    CalDavConfigService::get_sync_interval_minutes(state.db())
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// 设置 CalDAV 同步间隔（分钟）
+#[tauri::command]
+pub async fn set_caldav_sync_interval(
+    state: State<'_, AppState>,
+    minutes: u64,
+) -> Result<(), String> {
+    // 验证范围（最小1分钟，最大1440分钟即24小时）
+    if minutes < 1 || minutes > 1440 {
+        return Err("同步间隔必须在 1-1440 分钟之间".to_string());
+    }
+
+    CalDavConfigService::set_sync_interval_minutes(state.db(), minutes)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    // 重启调度器使新的间隔立即生效
+    state.caldav_sync_manager().restart_scheduler();
+
+    println!("✅ CalDAV 同步间隔已更新为 {} 分钟", minutes);
+
+    Ok(())
+}

@@ -148,6 +148,30 @@ impl WebServerManager {
             .map(|handle| WebServerStatus::running(handle.addr))
             .unwrap_or_else(WebServerStatus::stopped)
     }
+
+    /// 尝试根据配置自动启动 WebServer
+    /// 
+    /// 从数据库读取 "webserver.auto_start" 配置，如果为 true 则启动服务器
+    pub async fn try_auto_start(
+        &self,
+        db: DatabaseConnection,
+        app: AppHandle<Wry>,
+    ) -> Result<()> {
+        use crate::features::settings::core::service::SettingService;
+        
+        match SettingService::get_bool(&db, "webserver.auto_start", false).await {
+            Ok(true) => {
+                println!("Auto-starting web server...");
+                self.start(db, app, None).await?;
+                Ok(())
+            }
+            Ok(false) => Ok(()),
+            Err(e) => {
+                eprintln!("Failed to read auto-start setting: {}", e);
+                Err(e.into())
+            }
+        }
+    }
 }
 
 struct WebServerHandle {

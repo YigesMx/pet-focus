@@ -114,4 +114,35 @@ impl AppState {
             .and_then(|feature| feature.as_any().downcast_ref::<TodoFeature>())
             .and_then(|todo_feature| todo_feature.scheduler())
     }
+
+    /// 设置托盘注册表（仅桌面平台）
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    pub fn set_tray_registry(&mut self, registry: crate::infrastructure::tray::TrayRegistry) {
+        self.tray_manager.set_registry(registry);
+    }
+
+    /// 后初始化阶段（在 app.manage() 之后调用）
+    /// 
+    /// 此时 AppState 已经被 Tauri 托管，可以通过 app.try_state() 访问。
+    /// 执行需要访问已托管状态的初始化逻辑。
+    pub async fn post_initialize(&self, app: &AppHandle<Wry>) -> anyhow::Result<()> {
+        // 桌面平台特定的初始化
+        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        {
+            // 1. 创建系统托盘
+            self.tray_manager
+                .create_tray(app)
+                .map_err(|e| anyhow::anyhow!("Failed to create tray: {}", e))?;
+            
+            // 2. 自动启动 WebServer（如果配置启用）
+            self.webserver_manager
+                .try_auto_start(self.db.clone(), app.clone())
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to auto-start web server: {}", e))?;
+        }
+
+        // 未来可以在这里添加桌面和移动平台通用的初始化逻辑
+
+        Ok(())
+    }
 }

@@ -5,7 +5,9 @@ import {
   CALDAV_SYNC_EVENT,
   clearCaldavConfig,
   getCaldavStatus,
+  getCaldavSyncInterval,
   saveCaldavConfig,
+  setCaldavSyncInterval,
   syncCaldavNow,
   type CalDavConfigInput,
   type CalDavStatus,
@@ -19,6 +21,9 @@ export function useCaldavSync() {
   const [isSaving, setIsSaving] = useState(false)
   const [isClearing, setIsClearing] = useState(false)
   const [isManualSyncing, setIsManualSyncing] = useState(false)
+  const [syncInterval, setSyncInterval] = useState<number>(15)
+  const [isLoadingInterval, setIsLoadingInterval] = useState(true)
+  const [isSavingInterval, setIsSavingInterval] = useState(false)
 
   const loadStatus = useCallback(async (options?: { silent?: boolean }) => {
     if (!options?.silent) {
@@ -36,9 +41,22 @@ export function useCaldavSync() {
     }
   }, [])
 
+  const loadSyncInterval = useCallback(async () => {
+    setIsLoadingInterval(true)
+    try {
+      const interval = await getCaldavSyncInterval()
+      setSyncInterval(interval)
+    } catch (error) {
+      reportError("加载同步间隔失败", error)
+    } finally {
+      setIsLoadingInterval(false)
+    }
+  }, [])
+
   useEffect(() => {
     void loadStatus()
-  }, [loadStatus])
+    void loadSyncInterval()
+  }, [loadStatus, loadSyncInterval])
 
   useEffect(() => {
     let disposed = false
@@ -122,6 +140,19 @@ export function useCaldavSync() {
     }
   }, [status, loadStatus])
 
+  const saveSyncInterval = useCallback(async (minutes: number) => {
+    setIsSavingInterval(true)
+    try {
+      await setCaldavSyncInterval(minutes)
+      setSyncInterval(minutes)
+      // 后端已自动重启调度器
+    } catch (error) {
+      reportError("设置同步间隔失败", error)
+    } finally {
+      setIsSavingInterval(false)
+    }
+  }, [])
+
   const busySync = (status?.syncing ?? false) || isManualSyncing
 
   return {
@@ -134,5 +165,9 @@ export function useCaldavSync() {
     clearConfig,
     syncNow,
     reload: loadStatus,
+    syncInterval,
+    isLoadingInterval,
+    isSavingInterval,
+    saveSyncInterval,
   }
 }

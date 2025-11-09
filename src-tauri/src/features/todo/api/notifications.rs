@@ -11,7 +11,7 @@ use crate::infrastructure::notification::{NotificationManager, ToastLevel};
 /// - WebSocket 通知：外部 API 客户端收到事件推送
 
 /// WebSocket Event 名称
-pub const TODO_CHANGES_EVENT: &str = "todo-changes";
+pub const TODO_CHANGES_EVENT: &str = "todo.changes";
 pub const TODO_DUE_EVENT: &str = "todo.due";
 
 /// 创建 Todo 成功通知（Toast + WebSocket）
