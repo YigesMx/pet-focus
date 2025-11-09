@@ -19,11 +19,16 @@ export function CalDavSettings() {
     clearConfig,
     syncNow,
     reload,
+    syncInterval,
+    isLoadingInterval,
+    isSavingInterval,
+    saveSyncInterval,
   } = useCaldavSync()
 
   const [url, setUrl] = useState("")
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
+  const [intervalInput, setIntervalInput] = useState("")
 
   useEffect(() => {
     if (status) {
@@ -33,7 +38,20 @@ export function CalDavSettings() {
     }
   }, [status])
 
+  useEffect(() => {
+    setIntervalInput(syncInterval.toString())
+  }, [syncInterval])
+
   const isBusy = useMemo(() => isLoading || isSaving || isClearing, [isLoading, isSaving, isClearing])
+
+  const handleSaveInterval = () => {
+    const minutes = parseInt(intervalInput, 10)
+    if (isNaN(minutes) || minutes < 1 || minutes > 1440) {
+      reportError(new Error("同步间隔必须在 1-1440 分钟之间"))
+      return
+    }
+    void saveSyncInterval(minutes)
+  }
 
   const lastSyncText = useMemo(() => {
     if (!status?.last_sync_at) return "尚未同步"
@@ -79,6 +97,32 @@ export function CalDavSettings() {
               placeholder="••••••••"
             />
           </div>
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="sync-interval">自动同步间隔（分钟）</Label>
+          <div className="flex gap-2">
+            <Input
+              id="sync-interval"
+              type="number"
+              min="1"
+              max="1440"
+              value={intervalInput}
+              onChange={(event) => setIntervalInput(event.target.value)}
+              disabled={isLoadingInterval || isSavingInterval}
+              placeholder="15"
+              className="max-w-[200px]"
+            />
+            <Button
+              onClick={handleSaveInterval}
+              type="button"
+              variant="outline"
+              disabled={isLoadingInterval || isSavingInterval || intervalInput === syncInterval.toString()}
+            >
+              {isSavingInterval ? <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" /> : null}
+              应用
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">设置后立即生效，范围 1-1440 分钟（24小时）</p>
         </div>
         <div className="grid gap-1 text-sm text-muted-foreground">
           <span>

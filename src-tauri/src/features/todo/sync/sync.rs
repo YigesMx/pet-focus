@@ -66,6 +66,7 @@ struct CalDavSyncInner {
     app_handle: AppHandle<Wry>,
     guard: Mutex<()>,
     running: std::sync::atomic::AtomicBool,
+    scheduler_restart: Arc<tokio::sync::Notify>,
 }
 
 impl CalDavSyncManager {
@@ -76,6 +77,7 @@ impl CalDavSyncManager {
                 app_handle,
                 guard: Mutex::new(()),
                 running: std::sync::atomic::AtomicBool::new(false),
+                scheduler_restart: Arc::new(tokio::sync::Notify::new()),
             }),
         };
 
@@ -111,12 +113,29 @@ impl CalDavSyncManager {
                 let interval = CalDavConfigService::get_sync_interval_minutes(manager.db())
                     .await
                     .unwrap_or(15);
-                tokio::time::sleep(Duration::from_secs(interval * 60)).await;
-                if let Err(err) = manager.sync_internal(SyncReason::Scheduled).await {
-                    eprintln!("CalDAV scheduled sync failed: {err}");
+                
+                println!("📅 CalDAV scheduler: next sync in {} minutes", interval);
+                
+                tokio::select! {
+                    _ = tokio::time::sleep(Duration::from_secs(interval * 60)) => {
+                        println!("🔄 CalDAV: Starting scheduled sync...");
+                        match manager.sync_internal(SyncReason::Scheduled).await {
+                            Ok(_) => println!("✅ CalDAV: Scheduled sync completed"),
+                            Err(err) => eprintln!("❌ CalDAV scheduled sync failed: {err}"),
+                        }
+                    }
+                    _ = manager.inner.scheduler_restart.notified() => {
+                        println!("🔄 CalDAV scheduler: Restarting due to configuration change");
+                        continue;
+                    }
                 }
             }
         });
+    }
+
+    /// 重启调度器（用于同步间隔更改后立即生效）
+    pub fn restart_scheduler(&self) {
+        self.inner.scheduler_restart.notify_one();
     }
 
     fn db(&self) -> &DatabaseConnection {

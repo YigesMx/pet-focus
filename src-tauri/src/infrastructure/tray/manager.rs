@@ -1,43 +1,42 @@
 use tauri::{
-    menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Emitter, Manager, Wry,
+    AppHandle, Wry,
 };
 
-use crate::AppState;
-use crate::features::settings::core::service::SettingService;
 use crate::features::window::manager as window;
-
-const WEBSERVER_STATUS_CHANGED_EVENT: &str = "webserver-status-changed";
+use super::registry::TrayRegistry;
 
 /// 托盘管理器
-pub struct TrayManager;
+pub struct TrayManager {
+    registry: TrayRegistry,
+}
 
 impl TrayManager {
     pub fn new() -> Self {
-        Self
+        Self {
+            registry: TrayRegistry::new(),
+        }
+    }
+
+    /// 设置托盘注册表（由 AppState 初始化时调用）
+    pub fn set_registry(&mut self, registry: TrayRegistry) {
+        self.registry = registry;
     }
 
     /// 创建系统托盘
     pub fn create_tray(&self, app: &AppHandle<Wry>) -> tauri::Result<()> {
-        // 从数据库读取初始状态
-        let app_handle = app.clone();
-        let initial_server_running = tauri::async_runtime::block_on(async move {
-            if let Some(state) = app_handle.try_state::<AppState>() {
-                match SettingService::get_bool(state.db(), "webserver.auto_start", false).await {
-                    Ok(auto_start) => auto_start,
-                    Err(e) => {
-                        eprintln!("Failed to read auto-start setting for tray: {}", e);
-                        false
-                    }
-                }
-            } else {
-                false
-            }
-        });
+        // 根据 registry 构建菜单
+        let menu = self.registry.build_menu(app)?;
 
-        // 创建初始菜单
-        let menu = Self::build_tray_menu(app, initial_server_running)?;
+        // 提取所有 handlers 到一个 HashMap 中（克隆 Arc）
+        use std::collections::HashMap;
+        use std::sync::Arc;
+        let mut handlers: HashMap<String, Arc<dyn Fn(&AppHandle) + Send + Sync>> = HashMap::new();
+        for layout_item in self.registry.layout() {
+            if let super::registry::TrayMenuLayout::Item(item) = layout_item {
+                handlers.insert(item.id.clone(), item.handler.clone());
+            }
+        }
 
         let _tray = TrayIconBuilder::with_id("main")
             .icon(app.default_window_icon().unwrap().clone())
@@ -55,78 +54,9 @@ impl TrayManager {
                 }
             })
             .on_menu_event(move |app, event| {
-                match event.id.as_ref() {
-                    "toggle" => {
-                        let _ = window::toggle_main_window(&app);
-                    }
-                    "start_server" => {
-                        let app_handle = app.clone();
-                        tauri::async_runtime::spawn(async move {
-                            if let Some(state) = app_handle.try_state::<AppState>() {
-                                match state
-                                    .webserver_manager()
-                                    .start(state.db().clone(), app_handle.clone(), None)
-                                    .await
-                                {
-                                    Ok(_) => {
-                                        println!("Web server started successfully");
-                                        // 保存设置
-                                        let _ = SettingService::set_bool(
-                                            state.db(),
-                                            "webserver.auto_start",
-                                            true,
-                                        )
-                                        .await;
-                                        // 更新托盘菜单
-                                        let _ = Self::update_tray_menu(&app_handle, true);
-                                        // 通知前端状态变化（直接使用 Tauri Event）
-                                        let _ = app_handle.emit(WEBSERVER_STATUS_CHANGED_EVENT, true);
-                                    }
-                                    Err(e) => {
-                                        eprintln!("Failed to start web server: {}", e);
-                                    }
-                                }
-                            }
-                        });
-                    }
-                    "stop_server" => {
-                        let app_handle = app.clone();
-                        tauri::async_runtime::spawn(async move {
-                            if let Some(state) = app_handle.try_state::<AppState>() {
-                                match state.webserver_manager().stop().await {
-                                    Ok(_) => {
-                                        println!("Web server stopped successfully");
-                                        // 保存设置
-                                        let _ = SettingService::set_bool(
-                                            state.db(),
-                                            "webserver.auto_start",
-                                            false,
-                                        )
-                                        .await;
-                                        // 更新托盘菜单
-                                        let _ = Self::update_tray_menu(&app_handle, false);
-                                        // 通知前端状态变化（直接使用 Tauri Event）
-                                        let _ = app_handle.emit(WEBSERVER_STATUS_CHANGED_EVENT, false);
-                                    }
-                                    Err(e) => {
-                                        eprintln!("Failed to stop web server: {}", e);
-                                    }
-                                }
-                            }
-                        });
-                    }
-                    "quit" => {
-                        // 先停止 web server
-                        let app_handle = app.clone();
-                        tauri::async_runtime::spawn(async move {
-                            if let Some(state) = app_handle.try_state::<AppState>() {
-                                let _ = state.webserver_manager().stop().await;
-                            }
-                            // 退出应用
-                            app_handle.exit(0);
-                        });
-                    }
-                    _ => {}
+                // 从 handlers map 中查找并调用对应的 handler
+                if let Some(handler) = handlers.get(event.id.as_ref()) {
+                    handler(&app);
                 }
             })
             .build(app)?;
@@ -135,59 +65,11 @@ impl TrayManager {
     }
 
     /// 更新托盘菜单
-    pub fn update_menu(app: &AppHandle<Wry>, server_running: bool) -> tauri::Result<()> {
-        Self::update_tray_menu(app, server_running)
-    }
-
-    /// 根据服务器状态构建托盘菜单
-    fn build_tray_menu(app: &AppHandle<Wry>, server_running: bool) -> tauri::Result<Menu<Wry>> {
-        let toggle_i = MenuItem::with_id(app, "toggle", "显示/隐藏窗口", true, None::<&str>)?;
-        let separator_1 = PredefinedMenuItem::separator(app)?;
-        let separator_2 = PredefinedMenuItem::separator(app)?;
-        let quit_i = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
-
-        let menu = if server_running {
-            // 服务器运行中，只显示停止按钮
-            let stop_server_i =
-                MenuItem::with_id(app, "stop_server", "停止 WebSocket API", true, None::<&str>)?;
-            Menu::with_items(
-                app,
-                &[
-                    &toggle_i,
-                    &separator_1,
-                    &stop_server_i,
-                    &separator_2,
-                    &quit_i,
-                ],
-            )?
-        } else {
-            // 服务器未运行，只显示启动按钮
-            let start_server_i = MenuItem::with_id(
-                app,
-                "start_server",
-                "启动 WebSocket API",
-                true,
-                None::<&str>,
-            )?;
-            Menu::with_items(
-                app,
-                &[
-                    &toggle_i,
-                    &separator_1,
-                    &start_server_i,
-                    &separator_2,
-                    &quit_i,
-                ],
-            )?
-        };
-
-        Ok(menu)
-    }
-
-    /// 更新托盘菜单（内部实现）
-    fn update_tray_menu(app: &AppHandle<Wry>, server_running: bool) -> tauri::Result<()> {
+    /// 
+    /// 重新构建菜单（会重新评估所有 is_visible 条件）
+    pub fn update_tray_menu(&self, app: &AppHandle<Wry>) -> tauri::Result<()> {
         if let Some(tray) = app.tray_by_id("main") {
-            let new_menu = Self::build_tray_menu(app, server_running)?;
+            let new_menu = self.registry.build_menu(app)?;
             tray.set_menu(Some(new_menu))?;
         }
         Ok(())

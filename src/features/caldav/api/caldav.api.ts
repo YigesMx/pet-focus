@@ -53,4 +53,12 @@ export async function syncCaldavNow(): Promise<CalDavSyncEvent> {
   return await invoke<CalDavSyncEvent>("sync_caldav_now")
 }
 
+export async function getCaldavSyncInterval(): Promise<number> {
+  return await invoke<number>("get_caldav_sync_interval")
+}
+
+export async function setCaldavSyncInterval(minutes: number): Promise<void> {
+  return await invoke<void>("set_caldav_sync_interval", { minutes })
+}
+
 export const CALDAV_SYNC_EVENT = "caldav-sync-event" as const

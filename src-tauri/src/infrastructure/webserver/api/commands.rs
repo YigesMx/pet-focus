@@ -24,9 +24,8 @@ pub async fn start_web_server(
             // 通知前端状态变化（直接使用 Tauri Event）
             let _ = state.app_handle().emit(WEBSERVER_STATUS_CHANGED_EVENT, true);
             
-            // 更新托盘菜单
-            use crate::infrastructure::tray::TrayManager;
-            let _ = TrayManager::update_menu(&state.app_handle(), true);
+            // 更新托盘菜单（重新评估 is_visible 条件）
+            let _ = state.tray_manager().update_tray_menu(&state.app_handle());
             
             // Toast 通知
             if let Some(port) = status.port {
@@ -60,9 +59,8 @@ pub async fn stop_web_server(
             // 通知前端状态变化（直接使用 Tauri Event）
             let _ = state.app_handle().emit(WEBSERVER_STATUS_CHANGED_EVENT, false);
             
-            // 更新托盘菜单
-            use crate::infrastructure::tray::TrayManager;
-            let _ = TrayManager::update_menu(&state.app_handle(), false);
+            // 更新托盘菜单（重新评估 is_visible 条件）
+            let _ = state.tray_manager().update_tray_menu(&state.app_handle());
             
             // Toast 通知
             super::notifications::notify_server_stopped(state.notification());
