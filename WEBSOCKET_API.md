@@ -11,6 +11,7 @@ Pet Focus 提供基于 WebSocket 的 API 服务器，支持实时双向通信和
 > 
 > 本文档仅描述 WebSocket API，不涉及 Tauri 内部事件系统。
 
+
 ## 📋 目录
 
 - [概述](#概述)

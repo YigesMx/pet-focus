@@ -1,13 +1,14 @@
-# Pet Focus
+<h1 align="center">Pet Focus</h1>
 
 <div align="center">
 
-一个现代化的待办事项管理桌面应用，基于 Tauri 2.x + React + TypeScript 构建
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tauri](https://img.shields.io/badge/Tauri-2.x-blue)](https://tauri.app/)
-[![React](https://img.shields.io/badge/React-18-61dafb)](https://react.dev/)
-[![Rust](https://img.shields.io/badge/Rust-2021-orange)](https://www.rust-lang.org/)
+<p>一个现代化的待办事项管理桌面应用，基于 Tauri 2.x + React + TypeScript 构建</p>
+<p style="display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:nowrap">
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <a href="https://tauri.app/"><img src="https://img.shields.io/badge/Tauri-2.x-blue" alt="Tauri"></a>
+  <a href="https://react.dev/"><img src="https://img.shields.io/badge/React-18-61dafb" alt="React"></a>
+  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-2021-orange" alt="Rust"></a>
+</p>
 
 </div>
 
