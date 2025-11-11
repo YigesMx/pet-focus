@@ -15,6 +15,13 @@ export function FocusTimer({ todoId, todoTitle, onSessionComplete, onCancel }: F
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [isRunning, setIsRunning] = useState(false)
 
+  // 当接收到 todoId 时自动开始计时
+  useEffect(() => {
+    if (todoId && !isRunning) {
+      setIsRunning(true)
+    }
+  }, [todoId])
+
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>
 
