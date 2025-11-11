@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from "react"
-import { Trash2 } from "lucide-react"
+import { Trash2, Play } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -23,6 +23,7 @@ type TodoItemProps = {
   onUpdateTitle: (id: number, title: string) => void
   onOpenDetails: (todo: Todo) => void
   onDelete: (id: number) => void
+  onStartFocus?: (todoId: number) => void
 }
 
 export function TodoItem({
@@ -32,6 +33,7 @@ export function TodoItem({
   onUpdateTitle,
   onOpenDetails,
   onDelete,
+  onStartFocus,
 }: TodoItemProps) {
   const [draftTitle, setDraftTitle] = useState(todo.title)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
@@ -132,6 +134,18 @@ export function TodoItem({
           >
             {dueLabel ? `到期：${dueLabel}` : "未设置到期时间"}
           </span>
+          {!todo.completed && onStartFocus && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => onStartFocus(todo.id)}
+              disabled={disabled}
+              className="gap-1"
+            >
+              <Play className="size-3" />
+              开始
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"

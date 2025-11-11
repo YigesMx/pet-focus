@@ -11,7 +11,11 @@ import { useTodoSyncEvents } from "@/features/todo/hooks/useTodoSyncEvents"
 import { todoKeys } from "@/features/todo/api/todo.keys"
 import type { Todo } from "@/features/todo/types/todo.types"
 
-export function TodosPage() {
+interface TodosPageProps {
+  onStartFocus?: (todoId: number) => void
+}
+
+export function TodosPage({ onStartFocus }: TodosPageProps) {
   const queryClient = useQueryClient()
   const { data: todos = [], isPending } = useTodosQuery()
   const {
@@ -83,6 +87,7 @@ export function TodosPage() {
             onDelete={(id) => {
               void deleteTodo(id)
             }}
+            onStartFocus={onStartFocus}
           />
         </CardContent>
       </Card>

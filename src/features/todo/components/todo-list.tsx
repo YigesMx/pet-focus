@@ -12,6 +12,7 @@ type TodoListProps = {
   onUpdateTitle: (id: number, title: string) => void
   onOpenDetails: (todo: Todo) => void
   onDelete: (id: number) => void
+  onStartFocus?: (todoId: number) => void
 }
 
 export function TodoList({
@@ -22,6 +23,7 @@ export function TodoList({
   onUpdateTitle,
   onOpenDetails,
   onDelete,
+  onStartFocus,
 }: TodoListProps) {
   if (isLoading) {
     return (
@@ -53,6 +55,7 @@ export function TodoList({
           onUpdateTitle={onUpdateTitle}
           onOpenDetails={onOpenDetails}
           onDelete={onDelete}
+          onStartFocus={onStartFocus}
         />
       ))}
     </div>
