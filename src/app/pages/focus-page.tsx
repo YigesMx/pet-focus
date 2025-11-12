@@ -1,5 +1,5 @@
 import { useMemo } from "react"
-import { FocusTimer } from "@/features/focus-timer/components/focus-timer"
+import { ForestTimer } from "@/features/focus-timer/components/forest-timer"
 import { useTodosQuery } from "@/features/todo/api/todo.queries"
 import type { CompletedFocusSession } from "@/App"
 
@@ -28,12 +28,5 @@ export function FocusPage({ focusTodoId, onSessionComplete, onCancel }: FocusPag
     onSessionComplete?.(session)
   }
 
-  return (
-    <FocusTimer
-      todoId={focusTodo?.id}
-      todoTitle={focusTodo?.title}
-      onSessionComplete={handleSessionComplete}
-      onCancel={onCancel}
-    />
-  )
+  return <ForestTimer />
 }
