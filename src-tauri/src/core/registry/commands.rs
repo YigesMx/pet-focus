@@ -23,6 +23,18 @@ pub fn get_handler() -> impl Fn(Invoke<tauri::Wry>) -> bool + Send + Sync + 'sta
         // Settings Feature Commands
         crate::features::settings::api::commands::get_theme_preference,
         crate::features::settings::api::commands::set_theme_preference,
+
+        // Pomodoro Feature Commands
+        crate::features::pomodoro::api::commands::pomodoro_start,
+        crate::features::pomodoro::api::commands::pomodoro_pause,
+        crate::features::pomodoro::api::commands::pomodoro_resume,
+        crate::features::pomodoro::api::commands::pomodoro_skip,
+        crate::features::pomodoro::api::commands::pomodoro_stop,
+        crate::features::pomodoro::api::commands::pomodoro_status,
+        crate::features::pomodoro::api::commands::pomodoro_get_config,
+        crate::features::pomodoro::api::commands::pomodoro_set_config,
+        crate::features::pomodoro::api::commands::pomodoro_list_sessions,
+        crate::features::pomodoro::api::commands::pomodoro_stats,
         
         // WebServer Commands (Desktop only)
         #[cfg(not(any(target_os = "android", target_os = "ios")))]

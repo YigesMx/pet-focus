@@ -10,13 +10,14 @@ use std::sync::Arc;
 use tauri::Manager;
 use core::Feature;
 use infrastructure::database::{init_db, DatabaseRegistry};
-use features::{todo::TodoFeature, settings::SettingsFeature, window::WindowFeature};
+use features::{todo::TodoFeature, settings::SettingsFeature, window::WindowFeature, pomodoro::PomodoroFeature};
 
 /// 初始化所有 Features
 fn init_features() -> Vec<Arc<dyn Feature>> {
     vec![
         TodoFeature::new(),
         SettingsFeature::new(),
+        PomodoroFeature::new(),
         Arc::new(WindowFeature::new()),
     ]
 }
@@ -25,6 +26,7 @@ fn init_features() -> Vec<Arc<dyn Feature>> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             let handle = app.handle();
 

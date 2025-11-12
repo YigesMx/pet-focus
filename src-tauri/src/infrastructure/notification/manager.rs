@@ -1,4 +1,5 @@
 use tauri::{AppHandle, Emitter, Manager};
+use tauri_plugin_notification::NotificationExt;
 
 /// 通知管理器
 /// 
@@ -71,8 +72,17 @@ impl NotificationManager {
     }
 
     /// 发送 Native 系统通知（预留）
-    pub fn send_native(&self, _title: String, _body: String) -> anyhow::Result<()> {
-        // TODO: 使用 tauri-plugin-notification 实现
+    pub fn send_native(&self, title: String, body: String) -> anyhow::Result<()> {
+        // 使用 tauri-plugin-notification 发送系统通知
+        // 桌面与移动平台若插件可用则正常通知；若不可用则静默返回 Ok(())
+        let notifier = self.app_handle.notification();
+        notifier
+            .builder()
+            .title(title)
+            .body(body)
+            .show()
+            .map_err(|e| anyhow::anyhow!("Failed to show native notification: {}", e))?;
+
         Ok(())
     }
 

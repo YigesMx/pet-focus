@@ -1,5 +1,5 @@
 import { useMemo } from "react"
-import { ForestTimer } from "@/features/focus-timer/components/forest-timer"
+import { PomodoroTimer } from "@/features/pomodoro/components/pomodoro-timer"
 import { useTodosQuery } from "@/features/todo/api/todo.queries"
 import type { CompletedFocusSession } from "@/App"
 
@@ -28,5 +28,5 @@ export function FocusPage({ focusTodoId, onSessionComplete, onCancel }: FocusPag
     onSessionComplete?.(session)
   }
 
-  return <ForestTimer />
+  return <PomodoroTimer />
 }

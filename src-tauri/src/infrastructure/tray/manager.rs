@@ -74,6 +74,14 @@ impl TrayManager {
         }
         Ok(())
     }
+
+    /// 设置托盘 Tooltip 文本
+    pub fn set_tooltip(&self, app: &AppHandle<Wry>, text: &str) -> tauri::Result<()> {
+        if let Some(tray) = app.tray_by_id("main") {
+            tray.set_tooltip(Some(text))?;
+        }
+        Ok(())
+    }
 }
 
 impl Default for TrayManager {

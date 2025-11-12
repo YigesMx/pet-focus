@@ -64,6 +64,12 @@ pub fn notify_todo_due(notification_manager: &NotificationManager, todo_id: i32,
             "title": title,
         }),
     );
+
+    // 系统通知（原生通知中心）
+    let _ = notification_manager.send_native(
+        "待办到期".to_string(),
+        format!("{} 已到期", title),
+    );
 }
 
 /// CalDAV 同步成功通知

@@ -19,6 +19,7 @@
     "core:menu:allow-append",
     "core:menu:allow-prepend",
     "core:menu:allow-insert",
-    "opener:default"
+    "opener:default",
+    "notification:default"
   ]
 }
