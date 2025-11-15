@@ -5,39 +5,30 @@ import { useEffect, useState } from "react";
 import { BottomNav } from "@/app/navigation/bottom-nav";
 import { FocusPage, SettingsPage, StatsPage, TodosPage, type Page } from "@/app/pages";
 import { NotificationCenter } from "@/components/app/notification-center";
-
-// 已完成的专注会话类型定义
-export interface CompletedFocusSession {
-  id: string;
-  todoId: number;
-  todoTitle: string;
-  durationSeconds: number;
-  completedAt: string;
-}
+import { listen } from "@tauri-apps/api/event";
+import { useQueryClient } from "@tanstack/react-query";
 
 function App() {
   const [currentPage, setCurrentPage] = useState<Page>("todos");
   const [currentFocusTodoId, setCurrentFocusTodoId] = useState<number | null>(null);
-  const [completedSessions, setCompletedSessions] = useState<CompletedFocusSession[]>([]);
+  const queryClient = useQueryClient();
 
-  // 从 localStorage 加载已完成的会话
+  // 在 App 级别监听会话记录更新事件，确保无论在哪个页面都能接收到
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem("focusSessions");
-      if (stored) {
-        setCompletedSessions(JSON.parse(stored));
-      }
-    } catch (error) {
-      console.error("Failed to load focus sessions from localStorage:", error);
-    }
-  }, []);
+    console.log("App: 开始监听 pomodoro-session-recorded 事件");
+    
+    const unlisten = listen("pomodoro-session-recorded", () => {
+      console.log("App: 收到 pomodoro-session-recorded 事件，刷新会话数据");
+      // 刷新所有 pomodoro 相关的查询
+      queryClient.invalidateQueries({ queryKey: ["pomodoro-sessions"] }); // 旧的
+      queryClient.invalidateQueries({ queryKey: ["pomodoro"] }); // 新的所有查询
+    });
 
-  // 保存已完成的会话到 localStorage
-  const saveCompletedSession = (session: CompletedFocusSession) => {
-    const updated = [...completedSessions, session];
-    setCompletedSessions(updated);
-    localStorage.setItem("focusSessions", JSON.stringify(updated));
-  };
+    return () => {
+      console.log("App: 清理事件监听器");
+      unlisten.then((fn) => fn());
+    };
+  }, [queryClient]);
 
   const renderPage = () => {
     switch (currentPage) {
@@ -54,11 +45,6 @@ function App() {
         return (
           <FocusPage
             focusTodoId={currentFocusTodoId}
-            onSessionComplete={(session) => {
-              saveCompletedSession(session);
-              setCurrentFocusTodoId(null);
-              setCurrentPage("stats");
-            }}
             onCancel={() => {
               setCurrentFocusTodoId(null);
               setCurrentPage("todos");
@@ -66,7 +52,7 @@ function App() {
           />
         );
       case "stats":
-        return <StatsPage completedSessions={completedSessions} />;
+        return <StatsPage />;
       case "settings":
         return <SettingsPage />;
       default:

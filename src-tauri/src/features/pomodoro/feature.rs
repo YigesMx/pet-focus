@@ -70,9 +70,15 @@ impl Feature for PomodoroFeature {
     }
 
     fn register_database(&self, registry: &mut crate::infrastructure::database::DatabaseRegistry) {
-        // 创建 Pomodoro 会话表
+        // 创建 Pomodoro 会话表（旧迁移，保留兼容）
         registry.register_migration("pomodoro_migration", |manager| {
             let migration = super::data::migration::PomodoroMigration;
+            Box::pin(async move { migration.up(manager).await })
+        });
+        
+        // 重构数据库结构（新迁移）
+        registry.register_migration("pomodoro_restructure_migration", |manager| {
+            let migration = super::data::restructure_migration::PomodoroRestructureMigration;
             Box::pin(async move { migration.up(manager).await })
         });
     }

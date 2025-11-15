@@ -1,4 +1,10 @@
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 import { CalDavSettings } from "@/features/caldav/components/caldav-settings"
 import { ThemePreferenceSelector } from "@/features/settings/components/theme-preference"
 import { ExternalApiToggle } from "@/features/webserver/components/external-api-toggle"
@@ -10,29 +16,56 @@ export function SettingsPage() {
 
   return (
     <Card>
-      <CardContent className="space-y-6 py-6">
-        <section>
-          <h3 className="mb-4 text-lg font-semibold">外观</h3>
-          <ThemePreferenceSelector />
-        </section>
+      <CardHeader>
+        <CardTitle>设置</CardTitle>
+        <CardDescription>管理应用程序的各项设置</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Accordion type="multiple" defaultValue={["appearance"]} className="w-full">
+          <AccordionItem value="appearance">
+            <AccordionTrigger>
+              <span className="text-base font-semibold">外观</span>
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">自定义应用程序的外观和主题</p>
+                <ThemePreferenceSelector />
+              </div>
+            </AccordionContent>
+          </AccordionItem>
 
-        <section>
-          <h3 className="mb-4 text-lg font-semibold">日历同步</h3>
-          <CalDavSettings />
-        </section>
+          <AccordionItem value="calendar">
+            <AccordionTrigger>
+              <span className="text-base font-semibold">日历同步</span>
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">配置 CalDAV 日历同步设置</p>
+                <CalDavSettings />
+              </div>
+            </AccordionContent>
+          </AccordionItem>
 
-        <section>
-          <h3 className="mb-4 text-lg font-semibold">外部 API</h3>
-          <ExternalApiToggle
-            isRunning={isServerRunning}
-            isBusy={isServerBusy}
-            isPlatformSupported={isPlatformSupported}
-            statusMessage={statusMessage}
-            onToggle={(nextEnabled) => {
-              void toggleApi(nextEnabled)
-            }}
-          />
-        </section>
+          <AccordionItem value="external-api">
+            <AccordionTrigger>
+              <span className="text-base font-semibold">外部 API</span>
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">启用或禁用外部 API 访问</p>
+                <ExternalApiToggle
+                  isRunning={isServerRunning}
+                  isBusy={isServerBusy}
+                  isPlatformSupported={isPlatformSupported}
+                  statusMessage={statusMessage}
+                  onToggle={(nextEnabled) => {
+                    void toggleApi(nextEnabled)
+                  }}
+                />
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       </CardContent>
     </Card>
   )

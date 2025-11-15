@@ -34,7 +34,21 @@ pub fn get_handler() -> impl Fn(Invoke<tauri::Wry>) -> bool + Send + Sync + 'sta
         crate::features::pomodoro::api::commands::pomodoro_get_config,
         crate::features::pomodoro::api::commands::pomodoro_set_config,
         crate::features::pomodoro::api::commands::pomodoro_list_sessions,
+        crate::features::pomodoro::api::commands::pomodoro_delete_session,
         crate::features::pomodoro::api::commands::pomodoro_stats,
+        // Pomodoro Session Management Commands
+        crate::features::pomodoro::api::commands::pomodoro_create_session,
+        crate::features::pomodoro::api::commands::pomodoro_get_session,
+        crate::features::pomodoro::api::commands::pomodoro_list_all_sessions,
+        crate::features::pomodoro::api::commands::pomodoro_update_session_note,
+        crate::features::pomodoro::api::commands::pomodoro_archive_session,
+        crate::features::pomodoro::api::commands::pomodoro_delete_session_cascade,
+        crate::features::pomodoro::api::commands::pomodoro_get_active_session,
+        crate::features::pomodoro::api::commands::pomodoro_get_or_create_active_session,
+        crate::features::pomodoro::api::commands::pomodoro_list_session_records,
+        crate::features::pomodoro::api::commands::pomodoro_generate_session_title,
+        crate::features::pomodoro::api::commands::pomodoro_save_adjusted_times,
+        crate::features::pomodoro::api::commands::pomodoro_get_adjusted_times,
         
         // WebServer Commands (Desktop only)
         #[cfg(not(any(target_os = "android", target_os = "ios")))]

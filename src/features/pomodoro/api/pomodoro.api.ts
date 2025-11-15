@@ -71,6 +71,10 @@ export async function listPomodoroSessions(limit = 50): Promise<PomodoroSession[
   return await invoke<PomodoroSession[]>("pomodoro_list_sessions", { limit })
 }
 
+export async function deletePomodoroSession(sessionId: number): Promise<void> {
+  await invoke("pomodoro_delete_session", { sessionId })
+}
+
 export async function getPomodoroStats(from: string, to: string): Promise<PomodoroStats> {
   return await invoke<PomodoroStats>("pomodoro_stats", { payload: { from, to } })
 }

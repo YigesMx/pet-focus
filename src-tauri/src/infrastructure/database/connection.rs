@@ -1,8 +1,10 @@
 use std::fs;
+use std::time::Duration;
 
 use anyhow::{Context, Result};
 use directories::ProjectDirs;
-use sea_orm::{ConnectionTrait, Database, DatabaseConnection, DbBackend, Statement};
+use sea_orm::DatabaseConnection;
+use sqlx::sqlite::SqliteConnectOptions;
 use tauri::AppHandle;
 
 const DB_FILENAME: &str = "pet_focus.sqlite";
@@ -22,25 +24,25 @@ pub async fn init_db(_app_handle: &AppHandle) -> Result<DatabaseConnection> {
     fs::create_dir_all(app_dir).context("failed to create application data directory")?;
 
     let db_path = app_dir.join(DB_FILENAME);
-    let path = db_path.to_string_lossy().replace('\u{5c}', "/");
-    let connection_url = format!("sqlite://{}?mode=rwc", path);
+    
+    // 使用 SqliteConnectOptions 配置 SQLite 连接，启用外键约束
+    let sqlite_opt = SqliteConnectOptions::new()
+        .filename(&db_path)
+        .create_if_missing(true)
+        .foreign_keys(true); // 关键：在每个连接上启用外键约束
 
-    let db = Database::connect(&connection_url)
+    // 使用 sqlx 的连接池配置，这会确保所有连接都应用相同的设置
+    use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
+    let pool: SqlitePool = SqlitePoolOptions::new()
+        .max_connections(100)
+        .min_connections(5)
+        .acquire_timeout(Duration::from_secs(8))
+        .connect_with(sqlite_opt)
         .await
-        .with_context(|| format!("failed to connect to database at {}", connection_url))?;
+        .context("failed to create connection pool")?;
 
-    enable_foreign_keys(&db).await?;
+    // 从 sqlx pool 创建 SeaORM DatabaseConnection
+    let db: DatabaseConnection = pool.into();
 
     Ok(db)
-}
-
-async fn enable_foreign_keys(db: &DatabaseConnection) -> Result<()> {
-    db.execute(Statement::from_string(
-        DbBackend::Sqlite,
-        "PRAGMA foreign_keys = ON".to_owned(),
-    ))
-    .await
-    .context("failed to enable foreign key support")?;
-
-    Ok(())
 }
