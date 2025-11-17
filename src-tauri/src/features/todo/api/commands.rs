@@ -135,3 +135,26 @@ pub async fn update_todo_details(
 
     Ok(result)
 }
+
+/// 获取指定任务的所有子任务
+#[tauri::command]
+pub async fn get_subtasks(
+    state: State<'_, AppState>,
+    parent_id: i32,
+) -> Result<Vec<Todo>, String> {
+    service::get_subtasks(state.db(), parent_id)
+        .await
+        .map_err(|err| err.to_string())
+}
+
+/// 更新任务的父任务关系
+#[tauri::command]
+pub async fn update_todo_parent(
+    state: State<'_, AppState>,
+    id: i32,
+    parent_id: Option<i32>,
+) -> Result<Todo, String> {
+    service::update_parent(state.db(), id, parent_id)
+        .await
+        .map_err(|err| err.to_string())
+}

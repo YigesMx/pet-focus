@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Todo {
     pub id: i32,
+    pub parent_id: Option<i32>,
     pub uid: String,
     pub title: String,
     pub description: Option<String>,
@@ -43,6 +44,7 @@ impl From<entity::Model> for Todo {
 
         Self {
             id: model.id,
+            parent_id: model.parent_id,
             uid: model.uid,
             title: model.title,
             description: model.description,

@@ -5,7 +5,7 @@ import { reportError } from "@/shared/lib/report-error"
 
 import type { TodoDetailUpdate } from "@/features/todo/types/todo.types"
 
-import { createTodo, deleteTodo, updateTodo, updateTodoDetails } from "../api/todo.api"
+import { createTodo, deleteTodo, updateTodo, updateTodoDetails, updateTodoParent } from "../api/todo.api"
 import { todoKeys } from "../api/todo.keys"
 
 type UpdateTitleInput = {
@@ -23,6 +23,11 @@ type UpdateDetailsInput = {
   details: TodoDetailUpdate
 }
 
+type UpdateParentInput = {
+  id: number
+  parentId: number | null
+}
+
 type DeleteTodoInput = {
   id: number
 }
@@ -37,6 +42,7 @@ type TodoMutations = {
   updateTitle: (id: number, title: string) => Promise<void>
   toggleCompleted: (id: number, completed: boolean) => Promise<void>
   updateDetails: (id: number, details: TodoDetailUpdate) => Promise<void>
+  updateParent: (id: number, parentId: number | null) => Promise<void>
   deleteTodo: (id: number) => Promise<void>
   busyTodoIds: Set<number>
   isCreating: boolean
@@ -118,6 +124,17 @@ export function useTodoMutations(): TodoMutations {
     },
   })
 
+  const updateParentMutation = useMutation({
+    mutationFn: ({ id, parentId }: UpdateParentInput) => updateTodoParent(id, parentId),
+    onSuccess: () => {
+      invalidateTodos()
+    },
+    onError: (error, { id }) => {
+      reportError("更新父任务失败", error)
+      setBusy(id, false)
+    },
+  })
+
   const deleteTodoMutation = useMutation({
     mutationFn: ({ id }: DeleteTodoInput) => deleteTodo(id),
     onSuccess: () => {
@@ -172,6 +189,9 @@ export function useTodoMutations(): TodoMutations {
           await updateDetailsMutation.mutateAsync({ id, details })
         })
       },
+      updateParent: async (id: number, parentId: number | null) => {
+        await runMutation(id, updateParentMutation, { id, parentId })
+      },
       deleteTodo: async (id: number) => {
         await runMutation(id, deleteTodoMutation, { id })
       },
@@ -185,7 +205,9 @@ export function useTodoMutations(): TodoMutations {
       runMutation,
       toggleCompletedMutation,
       updateDetailsMutation,
+      updateParentMutation,
       updateTitleMutation,
+      withBusy,
     ],
   )
 

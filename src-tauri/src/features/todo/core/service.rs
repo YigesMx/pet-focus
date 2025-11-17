@@ -39,6 +39,7 @@ pub async fn create_todo(db: &DatabaseConnection, title: Option<String>) -> Resu
 
     let model = entity::ActiveModel {
         id: NotSet,
+        parent_id: Set(None),
         uid: Set(Uuid::new_v4().to_string()),
         title: Set(normalized_title.into_owned()),
         description: Set(None),
@@ -241,6 +242,73 @@ pub async fn delete_todo(db: &DatabaseConnection, id: i32) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// 获取指定任务的所有子任务
+pub async fn get_subtasks(db: &DatabaseConnection, parent_id: i32) -> Result<Vec<Todo>> {
+    let todos = entity::Entity::find()
+        .filter(entity::Column::ParentId.eq(parent_id))
+        .filter(entity::Column::DeletedAt.is_null())
+        .all(db)
+        .await
+        .with_context(|| format!("failed to load subtasks for parent {}", parent_id))?;
+
+    Ok(todos.into_iter().map(Into::into).collect())
+}
+
+/// 更新任务的父任务关系
+pub async fn update_parent(db: &DatabaseConnection, id: i32, parent_id: Option<i32>) -> Result<Todo> {
+    let now = Utc::now();
+    
+    // 检查是否会创建循环引用
+    if let Some(new_parent_id) = parent_id {
+        if new_parent_id == id {
+            return Err(anyhow!("A task cannot be its own parent"));
+        }
+        
+        // 检查新父任务是否存在
+        let parent_exists = entity::Entity::find_by_id(new_parent_id)
+            .one(db)
+            .await?
+            .is_some();
+        
+        if !parent_exists {
+            return Err(anyhow!("Parent task {} not found", new_parent_id));
+        }
+        
+        // 检查是否会创建循环引用（新父任务是否是当前任务的后代）
+        let mut current_parent_id = Some(new_parent_id);
+        while let Some(pid) = current_parent_id {
+            if pid == id {
+                return Err(anyhow!("Cannot create circular parent-child relationship"));
+            }
+            
+            let parent = entity::Entity::find_by_id(pid)
+                .one(db)
+                .await?;
+            
+            current_parent_id = parent.and_then(|p| p.parent_id);
+        }
+    }
+    
+    let model = entity::Entity::find_by_id(id)
+        .one(db)
+        .await
+        .with_context(|| format!("failed to find todo {}", id))?
+        .ok_or_else(|| anyhow!("todo {} not found", id))?;
+    
+    let mut active: entity::ActiveModel = model.into();
+    active.parent_id = Set(parent_id);
+    active.dirty = Set(true);
+    active.updated_at = Set(now);
+    active.last_modified_at = Set(now);
+    
+    let updated = active
+        .update(db)
+        .await
+        .with_context(|| format!("failed to update parent for todo {}", id))?;
+    
+    Ok(updated.into())
 }
 
 /// 获取下一个需要提醒的 Todo（用于调度器）

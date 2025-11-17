@@ -407,7 +407,7 @@ async fn update_local_from_remote(
     }
 
     let mut active: entity::ActiveModel = existing.clone().into();
-    apply_remote_to_active(&mut active, &remote.item, remote, now, client);
+    apply_remote_to_active(db, &mut active, &remote.item, remote, now, client).await;
 
     active
         .update(db)
@@ -427,10 +427,11 @@ async fn create_local_from_remote(
 
     let mut active = entity::ActiveModel {
         id: NotSet,
+        parent_id: Set(None),  // 稍后会通过 RELATED-TO 设置
         ..Default::default()
     };
 
-    apply_remote_to_active(&mut active, &remote.item, remote, now, client);
+    apply_remote_to_active(db, &mut active, &remote.item, remote, now, client).await;
     active.created_at = Set(now);
 
     active.insert(db).await.with_context(|| {
@@ -510,7 +511,7 @@ async fn push_local_to_remote(
     model: entity::Model,
     now: DateTime<Utc>,
 ) -> Result<()> {
-    let body = build_ical_from_model(&model);
+    let body = build_ical_from_model(db, &model).await;
     
     let upload = if let Some(href) = &model.remote_url {
         // 第一次尝试：使用 ETag 进行乐观锁更新
@@ -560,7 +561,7 @@ async fn push_local_to_remote(
                         
                         // 用远端版本覆盖本地
                         let mut active: entity::ActiveModel = model.clone().into();
-                        apply_remote_to_active(&mut active, &remote_todo.item, &remote_todo, now, client);
+                        apply_remote_to_active(db, &mut active, &remote_todo.item, &remote_todo, now, client).await;
                         active
                             .update(db)
                             .await
@@ -596,7 +597,8 @@ async fn push_local_to_remote(
     Ok(())
 }
 
-fn apply_remote_to_active(
+async fn apply_remote_to_active(
+    db: &DatabaseConnection,
     active: &mut entity::ActiveModel,
     item: &CalDavItem,
     remote: &RemoteTodo,
@@ -668,6 +670,27 @@ fn apply_remote_to_active(
     active.last_synced_at = Set(Some(now));
     active.deleted_at = Set(None);
     active.updated_at = Set(now);
+    
+    // 处理 RELATED-TO (子任务关系)
+    if let Some(parent_uid) = &item.related_to {
+        // 根据 parent UID 查找本地父任务的 ID
+        let parent = entity::Entity::find()
+            .filter(entity::Column::Uid.eq(parent_uid))
+            .one(db)
+            .await
+            .ok()
+            .flatten();
+        
+        if let Some(parent_todo) = parent {
+            active.parent_id = Set(Some(parent_todo.id));
+            println!("  -> Set parent_id={} for subtask UID={}", parent_todo.id, item.uid);
+        } else {
+            println!("  -> Warning: Parent task UID={} not found for subtask UID={}", parent_uid, item.uid);
+            active.parent_id = Set(None);
+        }
+    } else {
+        active.parent_id = Set(None);
+    }
 
     if matches!(active.reminder_offset_minutes, Set(value) if value <= 0) {
         active.reminder_offset_minutes = Set(DEFAULT_REMINDER_MINUTES);
@@ -688,7 +711,7 @@ fn serialize_tags(tags: &[String]) -> Option<String> {
     }
 }
 
-fn build_ical_from_model(model: &entity::Model) -> String {
+async fn build_ical_from_model(db: &DatabaseConnection, model: &entity::Model) -> String {
     let mut lines = Vec::<String>::new();
     let stamp = Utc::now();
 
@@ -762,6 +785,19 @@ fn build_ical_from_model(model: &entity::Model) -> String {
 
     if let Some(completed) = model.completed_at {
         lines.push(format!("COMPLETED:{}", format_datetime(&completed)));
+    }
+
+    // 处理父任务关系 (RELATED-TO)
+    if let Some(parent_id) = model.parent_id {
+        if let Ok(Some(parent)) = entity::Entity::find_by_id(parent_id)
+            .one(db)
+            .await
+        {
+            lines.push(format!("RELATED-TO:{}", escape_ical_value(&parent.uid)));
+            println!("  -> Generated RELATED-TO:{} for subtask UID={}", parent.uid, model.uid);
+        } else {
+            eprintln!("  -> Warning: Parent task id={} not found for subtask UID={}", parent_id, model.uid);
+        }
     }
 
     if model.reminder_offset_minutes > 0 {

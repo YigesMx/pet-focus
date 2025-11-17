@@ -8,7 +8,7 @@ use sea_orm_migration::MigrationTrait;
 use crate::core::{AppState, Feature};
 use crate::infrastructure::database::DatabaseRegistry;
 
-use super::data::migration;
+use super::data::{migration, add_subtask_migration};
 use super::core::scheduler::DueNotificationScheduler;
 
 /// Todo Feature
@@ -53,6 +53,14 @@ impl Feature for TodoFeature {
                 migration.up(manager).await
             })
         });
+        
+        // 注册子任务支持迁移
+        registry.register_migration("add_subtask_migration", |manager| {
+            let migration = add_subtask_migration::AddSubtaskMigration;
+            Box::pin(async move {
+                migration.up(manager).await
+            })
+        });
     }
 
     fn command_names(&self) -> Vec<&'static str> {
@@ -62,6 +70,8 @@ impl Feature for TodoFeature {
             "update_todo",
             "delete_todo",
             "update_todo_details",
+            "get_subtasks",
+            "update_todo_parent",
             "get_caldav_status",
             "save_caldav_config",
             "clear_caldav_config",

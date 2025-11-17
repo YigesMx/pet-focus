@@ -4,3 +4,4 @@
 
 pub mod entity;
 pub mod migration;
+pub mod add_subtask_migration;

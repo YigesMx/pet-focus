@@ -48,6 +48,7 @@ pub struct CalDavItem {
     pub reminder_minutes: Option<i32>,
     pub timezone: Option<String>,
     pub recurrence_rule: Option<String>,
+    pub related_to: Option<String>,  // 父任务的 UID (用于子任务)
 }
 
 impl CalDavItem {
@@ -145,12 +146,19 @@ impl CalDavClient {
             .await
             .context("failed to read CalDAV REPORT response")?;
 
+        println!("\n========== CalDAV XML Response ==========\n{}", xml);
+        println!("=========================================\n");
+
         let items = parse_multistatus(&xml)
             .with_context(|| "failed to parse CalDAV multistatus response")?;
 
         let mut todos = Vec::with_capacity(items.len());
         for item in items {
             let absolute_href = self.resolve_href(&item.href)?;
+            
+            println!("\n========== Raw iCalendar Data for {} ==========\n{}", absolute_href, item.calendar_data);
+            println!("=========================================\n");
+            
             let parsed = parse_ical_todo(&item.calendar_data)
                 .with_context(|| format!("failed to parse VTODO from {}", absolute_href))?;
             todos.push(RemoteTodo {
@@ -757,6 +765,17 @@ fn parse_ical_todo(ics: &str) -> Result<CalDavItem> {
         .next()
         .ok_or_else(|| anyhow!("missing VTODO component"))?;
 
+    println!("\n========== Parsed VTODO Properties ==========\n");
+    for prop in &todo.properties {
+        println!("Property: {} = {:?}", prop.name, prop.value);
+        if let Some(params) = &prop.params {
+            for (key, values) in params {
+                println!("  Param: {} = {:?}", key, values);
+            }
+        }
+    }
+    println!("=========================================\n");
+
     let summary = get_property_value(&todo.properties, "SUMMARY")
         .ok_or_else(|| anyhow!("CalDAV VTODO missing SUMMARY"))?;
 
@@ -790,6 +809,9 @@ fn parse_ical_todo(ics: &str) -> Result<CalDavItem> {
         .iter()
         .find_map(|alarm| get_property_value(&alarm.properties, "TRIGGER"))
         .and_then(parse_trigger_offset);
+    
+    // 解析 RELATED-TO 字段（用于子任务）
+    let related_to = get_property_value(&todo.properties, "RELATED-TO");
 
     Ok(CalDavItem {
         uid,
@@ -807,6 +829,7 @@ fn parse_ical_todo(ics: &str) -> Result<CalDavItem> {
         reminder_minutes,
         timezone,
         recurrence_rule,
+        related_to,
     })
 }
 

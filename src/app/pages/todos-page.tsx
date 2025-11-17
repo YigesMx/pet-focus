@@ -23,6 +23,7 @@ export function TodosPage({ onStartFocus }: TodosPageProps) {
     updateTitle,
     toggleCompleted,
     updateDetails,
+    updateParent,
     deleteTodo,
     busyTodoIds,
     isCreating,
@@ -84,6 +85,9 @@ export function TodosPage({ onStartFocus }: TodosPageProps) {
               void updateTitle(id, title)
             }}
             onOpenDetails={handleOpenDetails}
+            onUpdateParent={(id, parentId) => {
+              void updateParent(id, parentId)
+            }}
             onDelete={(id) => {
               void deleteTodo(id)
             }}

@@ -55,3 +55,10 @@ export async function updateTodoDetails(
 
   return await invoke<Todo>("update_todo_details", { payload })
 }
+
+export async function updateTodoParent(
+  id: number,
+  parentId: number | null,
+): Promise<Todo> {
+  return await invoke<Todo>("update_todo_parent", { id, parentId })
+}
