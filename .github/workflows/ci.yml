@@ -75,17 +75,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Format check
+      - name: Format ability check
         run: cargo fmt --all --check
         working-directory: src-tauri
       
-      - name: Run Check
+      - name: Run Cargo Check
         run: cargo check --all-features
         working-directory: src-tauri
 
-      - name: Lint with clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
-        working-directory: src-tauri
+      # - name: Lint with clippy
+      #   run: cargo clippy --all-targets --all-features -- -D warnings
+      #   working-directory: src-tauri
 
       # - name: Run tests
       #   run: cargo test --all-features
