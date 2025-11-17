@@ -4,7 +4,7 @@ use tauri::{AppHandle, Wry};
 use super::connection::ConnectionManager;
 
 /// WebSocket API 上下文
-/// 
+///
 /// 提供给 WS Handler 的执行上下文
 #[derive(Clone)]
 pub struct ApiContext {

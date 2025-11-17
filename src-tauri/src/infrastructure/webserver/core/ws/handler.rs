@@ -50,10 +50,18 @@ pub async fn handle_socket(socket: WebSocket, state: RouterState) {
             if let Message::Text(text) = msg {
                 match serde_json::from_str::<WsMessage>(&text) {
                     Ok(WsMessage::Call { body: call }) => {
-                        handle_call(&conn_id_clone, call, &registry_clone, &conn_mgr_clone, &ctx_clone).await;
+                        handle_call(
+                            &conn_id_clone,
+                            call,
+                            &registry_clone,
+                            &conn_mgr_clone,
+                            &ctx_clone,
+                        )
+                        .await;
                     }
                     Ok(WsMessage::Listen { body: listen }) => {
-                        handle_listen(&conn_id_clone, listen, &registry_clone, &conn_mgr_clone).await;
+                        handle_listen(&conn_id_clone, listen, &registry_clone, &conn_mgr_clone)
+                            .await;
                     }
                     Ok(_) => {
                         eprintln!("Unexpected message type from client");

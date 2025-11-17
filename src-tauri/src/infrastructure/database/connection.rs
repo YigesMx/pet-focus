@@ -13,7 +13,7 @@ const ORGANIZATION: &str = "yiges";
 const APPLICATION: &str = "pet-focus";
 
 /// 初始化数据库连接
-/// 
+///
 /// 只负责创建连接和启用外键，不执行任何 Migration
 /// Migration 由各个 Feature 通过 DatabaseRegistry 统一管理
 pub async fn init_db(_app_handle: &AppHandle) -> Result<DatabaseConnection> {
@@ -24,7 +24,7 @@ pub async fn init_db(_app_handle: &AppHandle) -> Result<DatabaseConnection> {
     fs::create_dir_all(app_dir).context("failed to create application data directory")?;
 
     let db_path = app_dir.join(DB_FILENAME);
-    
+
     // 使用 SqliteConnectOptions 配置 SQLite 连接，启用外键约束
     let sqlite_opt = SqliteConnectOptions::new()
         .filename(&db_path)

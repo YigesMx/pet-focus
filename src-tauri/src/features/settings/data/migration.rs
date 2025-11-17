@@ -1,7 +1,7 @@
 use anyhow::Result;
+use sea_orm::{ConnectionTrait, Schema};
 use sea_orm_migration::prelude::*;
 use sea_orm_migration::MigrationTrait;
-use sea_orm::{ConnectionTrait, Schema};
 
 use super::entity;
 

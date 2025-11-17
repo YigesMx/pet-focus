@@ -79,7 +79,7 @@ impl WebServerManager {
 
         // 获取 registry 的克隆
         let registry = self.registry.lock().await.clone();
-        
+
         // 保存 connection_manager 引用以便其他模块使用
         let conn_mgr_for_handle = conn_mgr.clone();
 
@@ -110,11 +110,13 @@ impl WebServerManager {
 
         Ok(WebServerStatus::running(actual_addr))
     }
-    
+
     /// 获取 ConnectionManager（如果 WebServer 正在运行）
     pub fn get_connection_manager(&self) -> Option<ConnectionManager> {
         let guard = self.inner.try_lock().ok()?;
-        guard.as_ref().map(|handle| handle.connection_manager.clone())
+        guard
+            .as_ref()
+            .map(|handle| handle.connection_manager.clone())
     }
 
     pub async fn stop(&self) -> Result<WebServerStatus> {
@@ -150,15 +152,11 @@ impl WebServerManager {
     }
 
     /// 尝试根据配置自动启动 WebServer
-    /// 
+    ///
     /// 从数据库读取 "webserver.auto_start" 配置，如果为 true 则启动服务器
-    pub async fn try_auto_start(
-        &self,
-        db: DatabaseConnection,
-        app: AppHandle<Wry>,
-    ) -> Result<()> {
+    pub async fn try_auto_start(&self, db: DatabaseConnection, app: AppHandle<Wry>) -> Result<()> {
         use crate::features::settings::core::service::SettingService;
-        
+
         match SettingService::get_bool(&db, "webserver.auto_start", false).await {
             Ok(true) => {
                 println!("Auto-starting web server...");

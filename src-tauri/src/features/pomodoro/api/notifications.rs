@@ -10,4 +10,3 @@ pub fn notify_break_started(notification_manager: &NotificationManager, long: bo
     let _ = notification_manager.send_toast(title.to_string(), ToastLevel::Info);
     let _ = notification_manager.send_native(title.to_string(), "放松一下".to_string());
 }
-

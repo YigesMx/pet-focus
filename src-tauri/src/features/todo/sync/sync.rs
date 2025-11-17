@@ -113,9 +113,9 @@ impl CalDavSyncManager {
                 let interval = CalDavConfigService::get_sync_interval_minutes(manager.db())
                     .await
                     .unwrap_or(15);
-                
+
                 println!("📅 CalDAV scheduler: next sync in {} minutes", interval);
-                
+
                 tokio::select! {
                     _ = tokio::time::sleep(Duration::from_secs(interval * 60)) => {
                         println!("🔄 CalDAV: Starting scheduled sync...");
@@ -217,20 +217,29 @@ impl CalDavSyncManager {
 
     fn emit_event(&self, event: &CalDavSyncEvent) {
         use tauri::Emitter;
-        
+
         eprintln!("[CalDAV Sync] Emitting event: {:?}", event.outcome);
-        
+
         // 发送 CalDAV sync 事件（直接使用 Tauri Event）
         if let Err(err) = self.inner.app_handle.emit(SYNC_EVENT, event) {
             eprintln!("failed to emit CalDAV sync event: {err}");
         }
-        
+
         // Toast 通知 (用户界面) & 触发调度器重新规划
         if let Some(state) = self.inner.app_handle.try_state::<crate::core::AppState>() {
             match &event.outcome {
-                SyncOutcome::Success { created, updated, pushed, deleted, .. } => {
-                    eprintln!("[CalDAV Sync] Success! created={}, updated={}, pushed={}, deleted={}", created, updated, pushed, deleted);
-                    
+                SyncOutcome::Success {
+                    created,
+                    updated,
+                    pushed,
+                    deleted,
+                    ..
+                } => {
+                    eprintln!(
+                        "[CalDAV Sync] Success! created={}, updated={}, pushed={}, deleted={}",
+                        created, updated, pushed, deleted
+                    );
+
                     // 通知前端：待办数据已变更，以便前端立即刷新列表
                     eprintln!("[CalDAV Sync] Emitting todo-data-updated event with source=caldav");
                     if let Err(err) = self.inner.app_handle.emit(
@@ -241,15 +250,15 @@ impl CalDavSyncManager {
                     } else {
                         eprintln!("✅ Successfully emitted todo-data-updated event");
                     }
-                    
+
                     crate::features::todo::api::notifications::notify_sync_success(
                         state.notification(),
                         *created,
                         *updated,
                         *pushed,
-                        *deleted
+                        *deleted,
                     );
-                    
+
                     // CalDAV 同步可能修改了待办的提醒时间，需要重新规划
                     if let Some(scheduler) = state.todo_scheduler() {
                         let scheduler = scheduler.clone();
@@ -259,7 +268,10 @@ impl CalDavSyncManager {
                     }
                 }
                 SyncOutcome::Error { message } => {
-                    crate::features::todo::api::notifications::notify_sync_error(state.notification(), message);
+                    crate::features::todo::api::notifications::notify_sync_error(
+                        state.notification(),
+                        message,
+                    );
                 }
                 SyncOutcome::Skipped { .. } => {
                     // 跳过时不显示通知
@@ -282,7 +294,7 @@ async fn synchronize_database(
     client: &CalDavClient,
 ) -> Result<SyncSummary> {
     let now = Utc::now();
-    
+
     let remote_todos = client.fetch_todos().await?;
 
     let mut local_models = entity::Entity::find().all(db).await?;
@@ -337,10 +349,8 @@ async fn synchronize_database(
 
     // 检测远端已删除但本地仍存在的 todo（不在 remote_todos 中但有 remote_url 的本地项）
     // 这些应该从本地删除
-    let remote_hrefs: std::collections::HashSet<String> = remote_todos
-        .iter()
-        .map(|r| r.href.clone())
-        .collect();
+    let remote_hrefs: std::collections::HashSet<String> =
+        remote_todos.iter().map(|r| r.href.clone()).collect();
 
     for (href, local_model) in by_href {
         // 如果本地有 remote_url 但远端已不存在，且未被标记删除
@@ -379,12 +389,12 @@ async fn update_local_from_remote(
     if existing.deleted_at.is_some() {
         return Ok(());
     }
-    
+
     // Last-Write-Wins 策略：比较时间戳决定是否覆盖本地
     if existing.dirty {
         let local_modified = existing.last_modified_at;
         let remote_modified = remote.item.last_modified.unwrap_or(now);
-        
+
         if remote_modified > local_modified {
             // 远端更新更晚，覆盖本地（即使本地有未推送的修改）
             eprintln!(
@@ -427,7 +437,7 @@ async fn create_local_from_remote(
 
     let mut active = entity::ActiveModel {
         id: NotSet,
-        parent_id: Set(None),  // 稍后会通过 RELATED-TO 设置
+        parent_id: Set(None), // 稍后会通过 RELATED-TO 设置
         ..Default::default()
     };
 
@@ -452,11 +462,14 @@ async fn delete_remote_todo(
 ) -> Result<()> {
     // 如果有远端URL，则尝试删除远端资源
     if let Some(href) = &model.remote_url {
-        eprintln!("Attempting to delete remote todo {} at href: {}", model.id, href);
-        
+        eprintln!(
+            "Attempting to delete remote todo {} at href: {}",
+            model.id, href
+        );
+
         // 第一次尝试：使用 ETag
         let delete_result = client.delete_todo(href, model.remote_etag.as_deref()).await;
-        
+
         match delete_result {
             Ok(_) => {
                 eprintln!("Successfully deleted remote todo {}", model.id);
@@ -464,22 +477,29 @@ async fn delete_remote_todo(
             Err(err) => {
                 let err_msg = err.to_string();
                 eprintln!("Failed to delete remote todo {}: {}", model.id, err_msg);
-                
+
                 // 检查错误类型
                 let is_not_found = err_msg.contains("404") || err_msg.contains("Not Found");
-                let is_precondition_failed = err_msg.contains("412") || err_msg.contains("Precondition Failed");
-                
+                let is_precondition_failed =
+                    err_msg.contains("412") || err_msg.contains("Precondition Failed");
+
                 if is_not_found {
                     eprintln!("Remote todo {} not found (404), already deleted", model.id);
                 } else if is_precondition_failed {
-                    eprintln!("ETag mismatch (412) for todo {}, trying without ETag", model.id);
+                    eprintln!(
+                        "ETag mismatch (412) for todo {}, trying without ETag",
+                        model.id
+                    );
                     // 第二次尝试：不使用 ETag 强制删除
                     if let Err(retry_err) = client.delete_todo(href, None).await {
                         let retry_msg = retry_err.to_string();
                         // 再次检查是否是 404
                         if !retry_msg.contains("404") && !retry_msg.contains("Not Found") {
                             return Err(retry_err).with_context(|| {
-                                format!("failed to force delete remote todo {}: {}", model.id, retry_msg)
+                                format!(
+                                    "failed to force delete remote todo {}: {}",
+                                    model.id, retry_msg
+                                )
                             });
                         }
                         eprintln!("Remote todo {} not found on retry (404)", model.id);
@@ -512,32 +532,35 @@ async fn push_local_to_remote(
     now: DateTime<Utc>,
 ) -> Result<()> {
     let body = build_ical_from_model(db, &model).await;
-    
+
     let upload = if let Some(href) = &model.remote_url {
         // 第一次尝试：使用 ETag 进行乐观锁更新
         let update_result = client
             .update_todo(href, &body, model.remote_etag.as_deref())
             .await;
-        
+
         match update_result {
             Ok(upload) => upload,
             Err(err) => {
                 let err_msg = err.to_string();
                 let is_412 = err_msg.contains("412") || err_msg.contains("Precondition Failed");
-                
+
                 if is_412 {
                     // 遇到 412 冲突，应用 Last-Write-Wins 策略
-                    eprintln!("⚠️  412 Conflict detected for todo {}, applying Last-Write-Wins strategy", model.id);
-                    
+                    eprintln!(
+                        "⚠️  412 Conflict detected for todo {}, applying Last-Write-Wins strategy",
+                        model.id
+                    );
+
                     // 获取远端最新版本
                     let remote_todo = client
                         .get_todo(href)
                         .await
                         .context("failed to fetch remote todo after 412 conflict")?;
-                    
+
                     let local_modified = model.last_modified_at;
                     let remote_modified = remote_todo.item.last_modified.unwrap_or(now);
-                    
+
                     if local_modified > remote_modified {
                         // 本地更新更晚，强制覆盖远端（不使用 ETag）
                         eprintln!(
@@ -558,25 +581,36 @@ async fn push_local_to_remote(
                             local_modified.to_rfc3339(),
                             model.id
                         );
-                        
+
                         // 用远端版本覆盖本地
                         let mut active: entity::ActiveModel = model.clone().into();
-                        apply_remote_to_active(db, &mut active, &remote_todo.item, &remote_todo, now, client).await;
+                        apply_remote_to_active(
+                            db,
+                            &mut active,
+                            &remote_todo.item,
+                            &remote_todo,
+                            now,
+                            client,
+                        )
+                        .await;
                         active
                             .update(db)
                             .await
                             .context("failed to update local with remote after 412")?;
-                        
+
                         return Ok(());
                     }
                 } else {
                     // 其他错误，直接返回
-                    return Err(err).with_context(|| format!("failed to upload todo {} to CalDAV", model.id));
+                    return Err(err)
+                        .with_context(|| format!("failed to upload todo {} to CalDAV", model.id));
                 }
             }
         }
     } else {
-        client.create_todo(&model.uid, &body).await
+        client
+            .create_todo(&model.uid, &body)
+            .await
             .with_context(|| format!("failed to create todo {} on CalDAV", model.id))?
     };
 
@@ -670,7 +704,7 @@ async fn apply_remote_to_active(
     active.last_synced_at = Set(Some(now));
     active.deleted_at = Set(None);
     active.updated_at = Set(now);
-    
+
     // 处理 RELATED-TO (子任务关系)
     if let Some(parent_uid) = &item.related_to {
         // 根据 parent UID 查找本地父任务的 ID
@@ -680,12 +714,18 @@ async fn apply_remote_to_active(
             .await
             .ok()
             .flatten();
-        
+
         if let Some(parent_todo) = parent {
             active.parent_id = Set(Some(parent_todo.id));
-            println!("  -> Set parent_id={} for subtask UID={}", parent_todo.id, item.uid);
+            println!(
+                "  -> Set parent_id={} for subtask UID={}",
+                parent_todo.id, item.uid
+            );
         } else {
-            println!("  -> Warning: Parent task UID={} not found for subtask UID={}", parent_uid, item.uid);
+            println!(
+                "  -> Warning: Parent task UID={} not found for subtask UID={}",
+                parent_uid, item.uid
+            );
             active.parent_id = Set(None);
         }
     } else {
@@ -718,12 +758,12 @@ async fn build_ical_from_model(db: &DatabaseConnection, model: &entity::Model) -
     lines.push("BEGIN:VCALENDAR".to_string());
     lines.push("VERSION:2.0".to_string());
     lines.push("PRODID:-//pet-focus//EN".to_string());
-    
+
     // 如果有时区，添加 VTIMEZONE 组件
     if let Some(ref tz) = model.timezone {
         add_vtimezone(&mut lines, tz);
     }
-    
+
     lines.push("BEGIN:VTODO".to_string());
     lines.push(format!("UID:{}", escape_ical_value(&model.uid)));
     lines.push(format!("DTSTAMP:{}", format_datetime(&stamp)));
@@ -766,7 +806,11 @@ async fn build_ical_from_model(db: &DatabaseConnection, model: &entity::Model) -
 
     if let Some(due) = model.due_date {
         if let Some(ref tz) = model.timezone {
-            lines.push(format!("DUE;TZID={}:{}", tz, format_datetime_local(&due, tz)));
+            lines.push(format!(
+                "DUE;TZID={}:{}",
+                tz,
+                format_datetime_local(&due, tz)
+            ));
         } else {
             lines.push(format!("DUE:{}", format_datetime(&due)));
         }
@@ -774,7 +818,11 @@ async fn build_ical_from_model(db: &DatabaseConnection, model: &entity::Model) -
 
     // DTSTART: 根据是否有时区决定格式
     if let Some(ref tz) = model.timezone {
-        lines.push(format!("DTSTART;TZID={}:{}", tz, format_datetime_local(&model.start_at, tz)));
+        lines.push(format!(
+            "DTSTART;TZID={}:{}",
+            tz,
+            format_datetime_local(&model.start_at, tz)
+        ));
     } else {
         lines.push(format!("DTSTART:{}", format_datetime(&model.start_at)));
     }
@@ -789,14 +837,17 @@ async fn build_ical_from_model(db: &DatabaseConnection, model: &entity::Model) -
 
     // 处理父任务关系 (RELATED-TO)
     if let Some(parent_id) = model.parent_id {
-        if let Ok(Some(parent)) = entity::Entity::find_by_id(parent_id)
-            .one(db)
-            .await
-        {
+        if let Ok(Some(parent)) = entity::Entity::find_by_id(parent_id).one(db).await {
             lines.push(format!("RELATED-TO:{}", escape_ical_value(&parent.uid)));
-            println!("  -> Generated RELATED-TO:{} for subtask UID={}", parent.uid, model.uid);
+            println!(
+                "  -> Generated RELATED-TO:{} for subtask UID={}",
+                parent.uid, model.uid
+            );
         } else {
-            eprintln!("  -> Warning: Parent task id={} not found for subtask UID={}", parent_id, model.uid);
+            eprintln!(
+                "  -> Warning: Parent task id={} not found for subtask UID={}",
+                parent_id, model.uid
+            );
         }
     }
 
@@ -836,7 +887,7 @@ fn format_datetime_local(value: &DateTime<Utc>, tzid: &str) -> String {
 fn add_vtimezone(lines: &mut Vec<String>, tzid: &str) {
     lines.push("BEGIN:VTIMEZONE".to_string());
     lines.push(format!("TZID:{}", tzid));
-    
+
     // 简化处理：只添加基本的时区信息
     // 对于 Asia/Shanghai (UTC+8)
     if tzid.contains("Shanghai") || tzid.contains("China") {
@@ -853,7 +904,7 @@ fn add_vtimezone(lines: &mut Vec<String>, tzid: &str) {
         lines.push("TZOFFSETTO:+0000".to_string());
         lines.push("END:STANDARD".to_string());
     }
-    
+
     lines.push("END:VTIMEZONE".to_string());
 }
 

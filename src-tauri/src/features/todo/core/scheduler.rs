@@ -1,14 +1,14 @@
-use std::sync::Arc;
 use chrono::{DateTime, Utc};
 use sea_orm::DatabaseConnection;
+use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 
-use crate::infrastructure::notification::NotificationManager;
 use super::service;
 use crate::features::todo::api::notifications;
+use crate::infrastructure::notification::NotificationManager;
 
 /// 到期提醒调度器
-/// 
+///
 /// 工作流程：
 /// 1. 找到最近需要提醒的 Todo（due_date - reminder_offset_minutes 最早的）
 /// 2. 等待到提醒时间点
@@ -35,10 +35,7 @@ impl Clone for DueNotificationScheduler {
 
 impl DueNotificationScheduler {
     /// 创建新的调度器
-    pub fn new(
-        db: DatabaseConnection, 
-        notification_manager: Arc<NotificationManager>,
-    ) -> Self {
+    pub fn new(db: DatabaseConnection, notification_manager: Arc<NotificationManager>) -> Self {
         let (reschedule_tx, mut reschedule_rx) = mpsc::channel::<()>(32);
         let next_reminder = Arc::new(RwLock::new(None::<(i32, DateTime<Utc>)>));
 
@@ -53,10 +50,10 @@ impl DueNotificationScheduler {
         let scheduler_clone = scheduler.clone();
         tauri::async_runtime::spawn(async move {
             println!("[Scheduler] 后台任务已启动");
-            
+
             // 初始化时计算一次
             scheduler_clone.schedule_next_reminder().await;
-            
+
             loop {
                 tokio::select! {
                     _ = reschedule_rx.recv() => {
@@ -93,7 +90,8 @@ impl DueNotificationScheduler {
             if let Some((todo_id, reminder_time)) = next {
                 let now = Utc::now();
                 if reminder_time > now {
-                    let duration = (reminder_time - now).to_std()
+                    let duration = (reminder_time - now)
+                        .to_std()
                         .unwrap_or(std::time::Duration::from_secs(60));
                     println!("[Scheduler] 等待 {:?} 后提醒 Todo#{}", duration, todo_id);
                     tokio::time::sleep(duration).await;
@@ -117,10 +115,14 @@ impl DueNotificationScheduler {
                 if let Some(due_date) = todo.due_date {
                     let offset_minutes = todo.reminder_offset_minutes;
                     let reminder_time = due_date - chrono::Duration::minutes(offset_minutes as i64);
-                    
+
                     *self.next_reminder.write().await = Some((todo.id, reminder_time));
-                    println!("[Scheduler] 下次提醒: Todo#{} \"{}\" 在 {}", 
-                        todo.id, todo.title, reminder_time.format("%Y-%m-%d %H:%M:%S"));
+                    println!(
+                        "[Scheduler] 下次提醒: Todo#{} \"{}\" 在 {}",
+                        todo.id,
+                        todo.title,
+                        reminder_time.format("%Y-%m-%d %H:%M:%S")
+                    );
                 } else {
                     eprintln!("[Scheduler] Todo#{} 缺少 due_date", todo.id);
                     *self.next_reminder.write().await = None;
@@ -140,25 +142,25 @@ impl DueNotificationScheduler {
     /// 发送提醒并自动重新调度
     async fn send_reminder_and_reschedule(&self) -> anyhow::Result<()> {
         let next = self.next_reminder.read().await.clone();
-        
+
         if let Some((todo_id, _)) = next {
             println!("[Scheduler] 发送提醒给 Todo#{}", todo_id);
-            
+
             // 获取 Todo 详情
             let todo = service::get_todo_by_id(&self.db, todo_id).await?;
-            
+
             // 统一发送 Toast + WebSocket 通知
             notifications::notify_todo_due(&self.notification_manager, todo.id, &todo.title);
             println!("[Scheduler] 通知已发送 (Todo#{})", todo_id);
-            
+
             // 标记为已提醒
             service::mark_todo_reminded(&self.db, todo_id).await?;
             println!("[Scheduler] Todo#{} 已标记为已提醒", todo_id);
-            
+
             // 自动重新调度找下一个
             self.schedule_next_reminder().await;
         }
-        
+
         Ok(())
     }
 }

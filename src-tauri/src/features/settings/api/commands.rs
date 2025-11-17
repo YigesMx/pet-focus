@@ -1,8 +1,8 @@
 use tauri::State;
 
+use super::notifications;
 use crate::core::AppState;
 use crate::features::settings::core::service::SettingService;
-use super::notifications;
 
 #[derive(Debug, serde::Serialize)]
 pub struct ThemePreference {

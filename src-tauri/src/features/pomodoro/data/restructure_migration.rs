@@ -33,7 +33,7 @@ impl MigrationTrait for PomodoroRestructureMigration {
                     "SELECT name FROM sqlite_master WHERE type='table' AND name='pomodoro_records';".to_string(),
                 ))
                 .await;
-                
+
                 // 如果 pomodoro_records 不存在，才进行重命名
                 if check_result.is_err() || check_result.unwrap().is_none() {
                     println!("  -> Renaming table...");
@@ -91,14 +91,14 @@ impl MigrationTrait for PomodoroRestructureMigration {
 
         // 步骤 3: 为 pomodoro_records 添加 session_id 列和外键约束
         println!("Step 3: Adding session_id column with foreign key constraint...");
-        
+
         // 检查外键约束是否已存在（而不仅仅检查列）
         let check_fk = db.query_one(Statement::from_string(
             DatabaseBackend::Sqlite,
             "SELECT COUNT(*) as count FROM pragma_foreign_key_list('pomodoro_records') WHERE \"table\"='pomodoro_sessions';".to_string(),
         ))
         .await;
-        
+
         let fk_exists = if let Ok(Some(row)) = check_fk {
             let count: i32 = row.try_get("", "count").unwrap_or(0);
             count > 0
@@ -147,7 +147,7 @@ impl MigrationTrait for PomodoroRestructureMigration {
             .await
             .context("failed to add session_id column with foreign key")
             .map_err(|e| DbErr::Custom(e.to_string()))?;
-            
+
             println!("  -> Successfully added session_id column with foreign key constraint");
         } else {
             println!("  -> Foreign key constraint already exists, skipping...");
@@ -164,7 +164,7 @@ impl MigrationTrait for PomodoroRestructureMigration {
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         // 回滚操作：删除 session_id 列，删除 sessions 表，重命名回原表名
         let db = manager.get_connection();
-        
+
         // 1. 删除 session_id 列 (SQLite 需要重建表)
         println!("Dropping session_id column...");
         db.execute(Statement::from_string(
@@ -178,7 +178,7 @@ impl MigrationTrait for PomodoroRestructureMigration {
             "#.to_string(),
         ))
         .await?;
-        
+
         // 2. 删除 sessions 表
         manager
             .drop_table(Table::drop().table(PomodoroSessions::Table).to_owned())
@@ -204,20 +204,24 @@ async fn migrate_existing_data(db: &SchemaManagerConnection<'_>) -> Result<(), D
     let existing_data = db
         .query_one(Statement::from_string(
             DatabaseBackend::Sqlite,
-            "SELECT COUNT(*) as count FROM pomodoro_records WHERE session_id IS NOT NULL".to_string(),
+            "SELECT COUNT(*) as count FROM pomodoro_records WHERE session_id IS NOT NULL"
+                .to_string(),
         ))
         .await?;
-    
+
     if let Some(row) = existing_data {
         let count: i64 = row.try_get("", "count")?;
         if count > 0 {
-            println!("  -> Data already migrated (found {} records with session_id), skipping...", count);
+            println!(
+                "  -> Data already migrated (found {} records with session_id), skipping...",
+                count
+            );
             return Ok(());
         }
     }
-    
+
     println!("  -> Migrating data...");
-    
+
     // 查询所有现有记录按日期分组
     let records_by_date = db
         .query_all(Statement::from_string(
@@ -232,12 +236,13 @@ async fn migrate_existing_data(db: &SchemaManagerConnection<'_>) -> Result<(), D
             WHERE session_id IS NULL
             GROUP BY date(start_at, 'localtime')
             ORDER BY record_date
-            "#.to_string(),
+            "#
+            .to_string(),
         ))
         .await?;
 
     let now = Utc::now().to_rfc3339();
-    
+
     for row in records_by_date {
         let record_date: String = row.try_get("", "record_date")?;
         let record_ids_str: String = row.try_get("", "record_ids")?;
@@ -256,7 +261,7 @@ async fn migrate_existing_data(db: &SchemaManagerConnection<'_>) -> Result<(), D
                VALUES (NULL, 0, NULL, '{}', '{}')"#,
             now, now
         );
-        
+
         db.execute(Statement::from_string(
             DatabaseBackend::Sqlite,
             insert_session,
@@ -280,7 +285,7 @@ async fn migrate_existing_data(db: &SchemaManagerConnection<'_>) -> Result<(), D
                     "UPDATE pomodoro_records SET session_id = {} WHERE id = {}",
                     session_id, record_id
                 );
-                
+
                 db.execute(Statement::from_string(
                     DatabaseBackend::Sqlite,
                     update_record,
@@ -288,8 +293,12 @@ async fn migrate_existing_data(db: &SchemaManagerConnection<'_>) -> Result<(), D
                 .await?;
             }
 
-            println!("  Created session {} for date {} with {} records", 
-                     session_id, record_date, record_ids.len());
+            println!(
+                "  Created session {} for date {} with {} records",
+                session_id,
+                record_date,
+                record_ids.len()
+            );
         }
     }
 

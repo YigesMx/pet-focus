@@ -12,9 +12,15 @@ use crate::features::todo::core::service;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub fn register_handlers(registry: &mut webserver::HandlerRegistry) {
     // 注册可订阅的事件
-    registry.register_event(notifications::TODO_DUE_EVENT, "Todo 到期提醒事件 - 当待办事项到期时广播");
-    registry.register_event(notifications::TODO_CHANGES_EVENT, "Todo 数据变更事件 - 创建/更新/删除时广播");
-    
+    registry.register_event(
+        notifications::TODO_DUE_EVENT,
+        "Todo 到期提醒事件 - 当待办事项到期时广播",
+    );
+    registry.register_event(
+        notifications::TODO_CHANGES_EVENT,
+        "Todo 数据变更事件 - 创建/更新/删除时广播",
+    );
+
     // 列出所有待办
     registry.register_call("todo.list", |_method, _params, ctx| {
         Box::pin(async move {
@@ -67,7 +73,7 @@ pub fn register_handlers(registry: &mut webserver::HandlerRegistry) {
             // 发送 Toast + WebSocket 通知 & 触发调度器重新规划
             if let Some(state) = ctx.app_handle().try_state::<crate::core::AppState>() {
                 notifications::notify_todo_created(state.notification(), todo.id, &todo.title);
-                
+
                 // 触发调度器重新规划提醒
                 if let Some(scheduler) = state.todo_scheduler() {
                     scheduler.reschedule().await;
@@ -86,7 +92,10 @@ pub fn register_handlers(registry: &mut webserver::HandlerRegistry) {
                 .and_then(|v| v.as_i64())
                 .context("Missing or invalid id")? as i32;
 
-            let title = params.get("title").and_then(|v| v.as_str()).map(String::from);
+            let title = params
+                .get("title")
+                .and_then(|v| v.as_str())
+                .map(String::from);
             let completed = params.get("completed").and_then(|v| v.as_bool());
 
             let todo = service::update_todo(ctx.db(), id, title, completed)
@@ -107,7 +116,7 @@ pub fn register_handlers(registry: &mut webserver::HandlerRegistry) {
             // 发送 Toast + WebSocket 通知 & 触发调度器重新规划
             if let Some(state) = ctx.app_handle().try_state::<crate::core::AppState>() {
                 notifications::notify_todo_updated(state.notification(), id, &todo.title);
-                
+
                 // 触发调度器重新规划提醒
                 if let Some(scheduler) = state.todo_scheduler() {
                     scheduler.reschedule().await;
@@ -144,7 +153,7 @@ pub fn register_handlers(registry: &mut webserver::HandlerRegistry) {
             // 发送 Toast + WebSocket 通知 & 触发调度器重新规划
             if let Some(state) = ctx.app_handle().try_state::<crate::core::AppState>() {
                 notifications::notify_todo_deleted(state.notification(), id);
-                
+
                 // 触发调度器重新规划提醒
                 if let Some(scheduler) = state.todo_scheduler() {
                     scheduler.reschedule().await;
@@ -168,7 +177,10 @@ pub fn register_handlers(registry: &mut webserver::HandlerRegistry) {
                 .and_then(|v| v.as_str())
                 .map(String::from);
 
-            let priority = params.get("priority").and_then(|v| v.as_i64()).map(|v| v as i32);
+            let priority = params
+                .get("priority")
+                .and_then(|v| v.as_i64())
+                .map(|v| v as i32);
 
             let location = params
                 .get("location")
@@ -252,7 +264,7 @@ pub fn register_handlers(registry: &mut webserver::HandlerRegistry) {
             // 发送 Toast + WebSocket 通知 & 触发调度器重新规划
             if let Some(state) = ctx.app_handle().try_state::<crate::core::AppState>() {
                 notifications::notify_todo_updated(state.notification(), id, &todo.title);
-                
+
                 // 触发调度器重新规划提醒（因为可能修改了提醒相关字段）
                 if let Some(scheduler) = state.todo_scheduler() {
                     scheduler.reschedule().await;

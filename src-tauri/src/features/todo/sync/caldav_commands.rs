@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
-use crate::core::AppState;
 use super::{CalDavConfig, CalDavConfigService, CalDavSyncEvent};
+use crate::core::AppState;
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateCalDavConfigPayload {
@@ -78,7 +78,7 @@ pub async fn save_caldav_config(
     CalDavConfigService::set_config(state.db(), &config)
         .await
         .map_err(|e| e.to_string())?;
-    
+
     CalDavConfigService::set_last_sync(state.db(), None)
         .await
         .map_err(|e| e.to_string())?;
@@ -88,7 +88,9 @@ pub async fn save_caldav_config(
 
     // 触发同步
     use super::sync::SyncReason;
-    state.caldav_sync_manager().trigger(SyncReason::ConfigUpdated);
+    state
+        .caldav_sync_manager()
+        .trigger(SyncReason::ConfigUpdated);
 
     get_caldav_status(state).await
 }
@@ -110,18 +112,18 @@ pub async fn clear_caldav_config(state: State<'_, AppState>) -> Result<CalDavSta
 
     // 触发同步
     use super::sync::SyncReason;
-    state.caldav_sync_manager().trigger(SyncReason::ConfigUpdated);
+    state
+        .caldav_sync_manager()
+        .trigger(SyncReason::ConfigUpdated);
 
     get_caldav_status(state).await
 }
 
 /// 立即执行 CalDAV 同步
 #[tauri::command]
-pub async fn sync_caldav_now(
-    state: State<'_, AppState>,
-) -> Result<CalDavSyncEvent, String> {
+pub async fn sync_caldav_now(state: State<'_, AppState>) -> Result<CalDavSyncEvent, String> {
     use super::sync::SyncReason;
-    
+
     state
         .caldav_sync_manager()
         .sync_now(SyncReason::Manual)

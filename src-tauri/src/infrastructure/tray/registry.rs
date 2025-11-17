@@ -6,7 +6,7 @@ use tauri::{
 };
 
 /// 托盘菜单项定义
-/// 
+///
 /// 每个 Feature 可以提供多个托盘菜单项，包含：
 /// - id: 唯一标识符
 /// - label: 显示文本
@@ -21,7 +21,12 @@ pub struct TrayMenuItem {
 
 impl TrayMenuItem {
     /// 创建托盘菜单项
-    pub fn new<F, V>(id: impl Into<String>, label: impl Into<String>, handler: F, is_visible: V) -> Self
+    pub fn new<F, V>(
+        id: impl Into<String>,
+        label: impl Into<String>,
+        handler: F,
+        is_visible: V,
+    ) -> Self
     where
         F: Fn(&AppHandle) + Send + Sync + 'static,
         V: Fn(&AppHandle) -> bool + Send + Sync + 'static,
@@ -44,7 +49,7 @@ impl TrayMenuItem {
 }
 
 /// 托盘菜单布局项
-/// 
+///
 /// 用于在 registry 中手动布局菜单结构
 pub enum TrayMenuLayout {
     /// 菜单项
@@ -54,9 +59,9 @@ pub enum TrayMenuLayout {
 }
 
 /// 托盘注册表
-/// 
+///
 /// **不再是收集各个 Feature 的注册项，而是手动布局菜单结构**
-/// 
+///
 /// 类似于 `lib.rs` 中手动注册 commands，这里也需要手动引入各个 Feature 的托盘项并布局。
 pub struct TrayRegistry {
     layout: Vec<TrayMenuLayout>,
@@ -64,9 +69,7 @@ pub struct TrayRegistry {
 
 impl TrayRegistry {
     pub fn new() -> Self {
-        Self {
-            layout: Vec::new(),
-        }
+        Self { layout: Vec::new() }
     }
 
     /// 添加菜单项到布局
@@ -88,7 +91,8 @@ impl TrayRegistry {
                 TrayMenuLayout::Item(item) => {
                     // 检查可见性
                     if (item.is_visible)(app) {
-                        let menu_item = MenuItem::with_id(app, &item.id, &item.label, true, None::<&str>)?;
+                        let menu_item =
+                            MenuItem::with_id(app, &item.id, &item.label, true, None::<&str>)?;
                         menu_items.push(Box::new(menu_item));
                     }
                 }
@@ -100,8 +104,10 @@ impl TrayRegistry {
         }
 
         // 转换为引用
-        let menu_item_refs: Vec<&dyn tauri::menu::IsMenuItem<Wry>> =
-            menu_items.iter().map(|item| &**item as &dyn tauri::menu::IsMenuItem<Wry>).collect();
+        let menu_item_refs: Vec<&dyn tauri::menu::IsMenuItem<Wry>> = menu_items
+            .iter()
+            .map(|item| &**item as &dyn tauri::menu::IsMenuItem<Wry>)
+            .collect();
 
         Menu::with_items(app, &menu_item_refs)
     }

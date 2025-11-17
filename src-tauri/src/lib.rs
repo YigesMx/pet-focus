@@ -1,16 +1,18 @@
 // 新架构模块
 mod core;
-mod infrastructure;
 mod features;
+mod infrastructure;
 
 // 重新导出核心类型
 pub use core::AppState;
 
+use core::Feature;
+use features::{
+    pomodoro::PomodoroFeature, settings::SettingsFeature, todo::TodoFeature, window::WindowFeature,
+};
+use infrastructure::database::{init_db, DatabaseRegistry};
 use std::sync::Arc;
 use tauri::Manager;
-use core::Feature;
-use infrastructure::database::{init_db, DatabaseRegistry};
-use features::{todo::TodoFeature, settings::SettingsFeature, window::WindowFeature, pomodoro::PomodoroFeature};
 
 /// 初始化所有 Features
 fn init_features() -> Vec<Arc<dyn Feature>> {
@@ -52,7 +54,8 @@ pub fn run() {
             // 注册 WebSocket Handlers（仅桌面平台）
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
             {
-                let mut registry = tauri::async_runtime::block_on(state.webserver_manager().registry_mut());
+                let mut registry =
+                    tauri::async_runtime::block_on(state.webserver_manager().registry_mut());
                 for feature in &features {
                     feature.register_ws_handlers(&mut registry);
                 }
@@ -67,8 +70,9 @@ pub fn run() {
 
             // 初始化所有 Features
             for feature in &features {
-                tauri::async_runtime::block_on(feature.initialize(&state))
-                    .map_err(|e| format!("Failed to initialize feature '{}': {}", feature.name(), e))?;
+                tauri::async_runtime::block_on(feature.initialize(&state)).map_err(|e| {
+                    format!("Failed to initialize feature '{}': {}", feature.name(), e)
+                })?;
             }
 
             // 托管状态

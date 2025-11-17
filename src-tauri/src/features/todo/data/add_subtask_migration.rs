@@ -20,7 +20,7 @@ impl MigrationTrait for AddSubtaskMigration {
         let backend = db.get_database_backend();
 
         println!("Adding subtask support to todos table...");
-        
+
         match backend {
             DbBackend::Sqlite => {
                 // 检查 parent_id 列是否已存在
@@ -29,7 +29,7 @@ impl MigrationTrait for AddSubtaskMigration {
                     "SELECT COUNT(*) as count FROM pragma_table_info('todos') WHERE name='parent_id';".to_string(),
                 ))
                 .await;
-                
+
                 let column_exists = if let Ok(Some(row)) = check_column {
                     let count: i32 = row.try_get("", "count").unwrap_or(0);
                     count > 0
@@ -105,8 +105,10 @@ impl MigrationTrait for AddSubtaskMigration {
                     .await
                     .context("failed to add parent_id column with foreign key")
                     .map_err(|e| DbErr::Custom(e.to_string()))?;
-                    
-                    println!("  -> Successfully added parent_id column with foreign key constraint");
+
+                    println!(
+                        "  -> Successfully added parent_id column with foreign key constraint"
+                    );
                 } else {
                     println!("  -> Column already exists, skipping...");
                 }
@@ -122,7 +124,7 @@ impl MigrationTrait for AddSubtaskMigration {
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
-        
+
         println!("Removing parent_id column...");
         db.execute(Statement::from_string(
             DatabaseBackend::Sqlite,

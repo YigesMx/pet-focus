@@ -6,15 +6,18 @@ use serde_json::Value;
 use crate::infrastructure::webserver::core::ws::ApiContext;
 
 /// WebSocket Call Handler 类型
-/// 
+///
 /// 接收：
 /// - method: 方法名
 /// - params: 参数 JSON
 /// - ctx: API 上下文
-/// 
+///
 /// 返回：Result<Value> - 成功或错误
-pub type WsCallHandler =
-    Arc<dyn Fn(String, Value, ApiContext) -> futures::future::BoxFuture<'static, Result<Value>> + Send + Sync>;
+pub type WsCallHandler = Arc<
+    dyn Fn(String, Value, ApiContext) -> futures::future::BoxFuture<'static, Result<Value>>
+        + Send
+        + Sync,
+>;
 
 /// WebSocket Event 元数据
 #[derive(Debug, Clone)]
@@ -26,13 +29,13 @@ pub struct EventMetadata {
 }
 
 /// WebSocket Handler 注册表
-/// 
+///
 /// 用于收集所有 Features 注册的：
 /// 1. Call-Reply 处理器（method -> handler）
 /// 2. Event 订阅事件（支持客户端订阅/广播）
-/// 
+///
 /// # 设计原则
-/// 
+///
 /// - Infrastructure 提供注册机制
 /// - Features 提供具体实现
 /// - Call: 通过 method 名称路由到对应 handler
@@ -54,7 +57,7 @@ impl HandlerRegistry {
     }
 
     /// 注册一个 WebSocket Call-Reply Handler
-    /// 
+    ///
     /// # 示例
     /// ```ignore
     /// registry.register_call("todo.list", |method, params, ctx| {
@@ -77,7 +80,7 @@ impl HandlerRegistry {
     }
 
     /// 注册一个可订阅的 Event
-    /// 
+    ///
     /// # 示例
     /// ```ignore
     /// registry.register_event("todo.due", "Todo 到期提醒事件");

@@ -2,13 +2,13 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Result;
-use tauri::{AppHandle, Emitter, Manager, Wry};
 use tauri::async_runtime::JoinHandle;
+use tauri::{AppHandle, Emitter, Manager, Wry};
 use tokio::{sync::Mutex, time::sleep};
 
-use crate::infrastructure::notification::NotificationManager;
 use crate::features::pomodoro::core::models::{PomodoroSessionKind, PomodoroSessionStatus};
 use crate::features::pomodoro::core::service as pomo_service;
+use crate::infrastructure::notification::NotificationManager;
 use chrono::Utc;
 
 use super::models::{PomodoroConfig, PomodoroMode, PomodoroStatus};
@@ -90,7 +90,9 @@ impl PomodoroManager {
 
     pub async fn skip(&self, cfg: PomodoroConfig) -> PomodoroStatus {
         // 持久化当前阶段为 skipped
-        if let Err(e) = persist_with_status(&self.state, &self.app, PomodoroSessionStatus::Skipped).await {
+        if let Err(e) =
+            persist_with_status(&self.state, &self.app, PomodoroSessionStatus::Skipped).await
+        {
             eprintln!("persist skipped error: {}", e);
         }
         self.advance_phase(cfg).await;
@@ -108,7 +110,9 @@ impl PomodoroManager {
             s.generation = s.generation.wrapping_add(1); // 递增 generation 以终止旧任务
         }
         // 持久化当前阶段为 stopped（如果有进行中的阶段）
-        if let Err(e) = persist_with_status(&self.state, &self.app, PomodoroSessionStatus::Stopped).await {
+        if let Err(e) =
+            persist_with_status(&self.state, &self.app, PomodoroSessionStatus::Stopped).await
+        {
             eprintln!("persist stopped error: {}", e);
         }
         self.abort_tick().await;
@@ -152,7 +156,9 @@ impl PomodoroManager {
                     if s.generation != current_generation {
                         break;
                     }
-                    if !s.running { break; }
+                    if !s.running {
+                        break;
+                    }
                     if s.paused {
                         // 仅广播 tick，不减少时间
                         remaining = s.remaining_seconds;
@@ -163,18 +169,26 @@ impl PomodoroManager {
                         }
                         remaining = s.remaining_seconds;
                         mode = s.mode;
-                        if s.remaining_seconds == 0 { finished = true; }
+                        if s.remaining_seconds == 0 {
+                            finished = true;
+                        }
                     }
                 }
 
                 // 广播 tick
-                let _ = manager_app.emit(POMODORO_TICK_EVENT, serde_json::json!({
-                    "remainingSeconds": remaining,
-                }));
-                notifier.send_websocket_event(WS_EVENT_TICK.to_string(), serde_json::json!({
-                    "remainingSeconds": remaining,
-                    "mode": format_mode(mode),
-                }));
+                let _ = manager_app.emit(
+                    POMODORO_TICK_EVENT,
+                    serde_json::json!({
+                        "remainingSeconds": remaining,
+                    }),
+                );
+                notifier.send_websocket_event(
+                    WS_EVENT_TICK.to_string(),
+                    serde_json::json!({
+                        "remainingSeconds": remaining,
+                        "mode": format_mode(mode),
+                    }),
+                );
 
                 // 更新托盘 tooltip（桌面）
                 update_tray_tooltip(&manager_app, mode, remaining).await;
@@ -185,7 +199,10 @@ impl PomodoroManager {
                     if let Err(e) = persist_finished_phase(&state_ptr, &manager_app).await {
                         eprintln!("Pomodoro persist error: {}", e);
                     }
-                    if let Err(e) = advance_phase_internal(&state_ptr, &notifier, &manager_app, cfg.clone()).await {
+                    if let Err(e) =
+                        advance_phase_internal(&state_ptr, &notifier, &manager_app, cfg.clone())
+                            .await
+                    {
                         eprintln!("Pomodoro advance phase error: {}", e);
                         break;
                     }
@@ -214,19 +231,32 @@ impl PomodoroManager {
             PomodoroMode::LongBreak => ("长休开始", "好好休息"),
             PomodoroMode::Idle => ("空闲", ""),
         };
-        let _ = self.notifier.send_toast(title.to_string(), crate::infrastructure::notification::ToastLevel::Info);
-        let _ = self.notifier.send_native(title.to_string(), body.to_string());
+        let _ = self.notifier.send_toast(
+            title.to_string(),
+            crate::infrastructure::notification::ToastLevel::Info,
+        );
+        let _ = self
+            .notifier
+            .send_native(title.to_string(), body.to_string());
         self.broadcast_status().await;
     }
 
     async fn broadcast_status(&self) {
         let status = self.status().await;
         let _ = self.app.emit(POMODORO_STATUS_EVENT, &status);
-        self.notifier.send_websocket_event(WS_EVENT_STATUS.to_string(), serde_json::to_value(&status).unwrap_or_default());
+        self.notifier.send_websocket_event(
+            WS_EVENT_STATUS.to_string(),
+            serde_json::to_value(&status).unwrap_or_default(),
+        );
     }
 }
 
-async fn advance_phase_internal(state_ptr: &Mutex<State>, notifier: &NotificationManager, app: &AppHandle<Wry>, cfg: PomodoroConfig) -> Result<()> {
+async fn advance_phase_internal(
+    state_ptr: &Mutex<State>,
+    notifier: &NotificationManager,
+    app: &AppHandle<Wry>,
+    cfg: PomodoroConfig,
+) -> Result<()> {
     let next_mode;
     let mut next_seconds = 0u32;
     let mut _next_round;
@@ -238,8 +268,16 @@ async fn advance_phase_internal(state_ptr: &Mutex<State>, notifier: &Notificatio
                 // 完成一个专注
                 s.round += 1;
                 let is_long = s.round % cfg.long_break_interval == 0 && cfg.long_break_interval > 0;
-                next_mode = if is_long { PomodoroMode::LongBreak } else { PomodoroMode::ShortBreak };
-                next_seconds = (if is_long { cfg.long_break_minutes } else { cfg.short_break_minutes }) * 60;
+                next_mode = if is_long {
+                    PomodoroMode::LongBreak
+                } else {
+                    PomodoroMode::ShortBreak
+                };
+                next_seconds = (if is_long {
+                    cfg.long_break_minutes
+                } else {
+                    cfg.short_break_minutes
+                }) * 60;
             }
             PomodoroMode::ShortBreak | PomodoroMode::LongBreak | PomodoroMode::Idle => {
                 next_mode = PomodoroMode::Focus;
@@ -262,7 +300,10 @@ async fn advance_phase_internal(state_ptr: &Mutex<State>, notifier: &Notificatio
         PomodoroMode::LongBreak => ("长休开始", "好好休息"),
         PomodoroMode::Idle => ("空闲", ""),
     };
-    let _ = notifier.send_toast(title.to_string(), crate::infrastructure::notification::ToastLevel::Info);
+    let _ = notifier.send_toast(
+        title.to_string(),
+        crate::infrastructure::notification::ToastLevel::Info,
+    );
     let _ = notifier.send_native(title.to_string(), body.to_string());
 
     // 立即广播最新状态 & 更新托盘
@@ -277,7 +318,10 @@ async fn advance_phase_internal(state_ptr: &Mutex<State>, notifier: &Notificatio
         }
     };
     let _ = app.emit(POMODORO_STATUS_EVENT, &status);
-    notifier.send_websocket_event(WS_EVENT_STATUS.to_string(), serde_json::to_value(&status).unwrap_or_default());
+    notifier.send_websocket_event(
+        WS_EVENT_STATUS.to_string(),
+        serde_json::to_value(&status).unwrap_or_default(),
+    );
     update_tray_tooltip(app, next_mode, next_seconds).await;
 
     Ok(())
@@ -289,28 +333,34 @@ async fn persist_finished_phase(state_ptr: &Arc<Mutex<State>>, app: &AppHandle<W
         let s = state_ptr.lock().await;
         (s.mode, s.phase_started_at, s.round)
     };
-    let Some(start_at) = started_at else { return Ok(()); };
+    let Some(start_at) = started_at else {
+        return Ok(());
+    };
     let end_at = Utc::now();
-    let kind = match mode { PomodoroMode::Focus => PomodoroSessionKind::Focus, _ => PomodoroSessionKind::Rest };
+    let kind = match mode {
+        PomodoroMode::Focus => PomodoroSessionKind::Focus,
+        _ => PomodoroSessionKind::Rest,
+    };
 
     if let Some(state) = app.try_state::<crate::core::AppState>() {
         let db = state.db().clone();
-        
+
         // 获取或创建活动 session（自动创建时不带备注）
         let active_session = pomo_service::get_or_create_active_session(&db, None).await?;
-        
+
         // 创建 record 并关联到 session
         pomo_service::create_record_with_session(
-            &db, 
-            active_session.id, 
-            kind, 
-            PomodoroSessionStatus::Completed, 
-            round, 
-            start_at, 
-            end_at, 
-            None
-        ).await?;
-        
+            &db,
+            active_session.id,
+            kind,
+            PomodoroSessionStatus::Completed,
+            round,
+            start_at,
+            end_at,
+            None,
+        )
+        .await?;
+
         // 发送会话记录更新事件
         println!("发送会话记录事件: {}", POMODORO_SESSION_RECORDED_EVENT);
         let _ = app.emit(POMODORO_SESSION_RECORDED_EVENT, ());
@@ -318,34 +368,46 @@ async fn persist_finished_phase(state_ptr: &Arc<Mutex<State>>, app: &AppHandle<W
     Ok(())
 }
 
-async fn persist_with_status(state_ptr: &Arc<Mutex<State>>, app: &AppHandle<Wry>, status: PomodoroSessionStatus) -> Result<()> {
+async fn persist_with_status(
+    state_ptr: &Arc<Mutex<State>>,
+    app: &AppHandle<Wry>,
+    status: PomodoroSessionStatus,
+) -> Result<()> {
     use tauri::Manager;
     let (mode, started_at, round, running) = {
         let s = state_ptr.lock().await;
         (s.mode, s.phase_started_at, s.round, s.running)
     };
-    if !running { return Ok(()); }
-    let Some(start_at) = started_at else { return Ok(()); };
+    if !running {
+        return Ok(());
+    }
+    let Some(start_at) = started_at else {
+        return Ok(());
+    };
     let end_at = Utc::now();
-    let kind = match mode { PomodoroMode::Focus => PomodoroSessionKind::Focus, _ => PomodoroSessionKind::Rest };
+    let kind = match mode {
+        PomodoroMode::Focus => PomodoroSessionKind::Focus,
+        _ => PomodoroSessionKind::Rest,
+    };
     if let Some(state) = app.try_state::<crate::core::AppState>() {
         let db = state.db().clone();
-        
+
         // 获取或创建活动 session（自动创建时不带备注）
         let active_session = pomo_service::get_or_create_active_session(&db, None).await?;
-        
+
         // 创建 record 并关联到 session
         pomo_service::create_record_with_session(
-            &db, 
-            active_session.id, 
-            kind, 
-            status, 
-            round, 
-            start_at, 
-            end_at, 
-            None
-        ).await?;
-        
+            &db,
+            active_session.id,
+            kind,
+            status,
+            round,
+            start_at,
+            end_at,
+            None,
+        )
+        .await?;
+
         // 发送会话记录更新事件
         println!("发送会话记录事件: {}", POMODORO_SESSION_RECORDED_EVENT);
         let _ = app.emit(POMODORO_SESSION_RECORDED_EVENT, ());

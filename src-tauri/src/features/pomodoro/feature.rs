@@ -7,11 +7,11 @@ use crate::core::{AppState, Feature};
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 use crate::infrastructure::webserver::HandlerRegistry;
 
-use tokio::sync::OnceCell;
 use sea_orm_migration::MigrationTrait;
+use tokio::sync::OnceCell;
 
 /// Pomodoro Feature（预留）
-/// 
+///
 /// 未来将实现番茄钟功能
 pub struct PomodoroFeature {
     manager: OnceCell<Arc<super::core::scheduler::PomodoroManager>>,
@@ -19,7 +19,9 @@ pub struct PomodoroFeature {
 
 impl PomodoroFeature {
     pub fn new() -> Arc<Self> {
-        Arc::new(Self { manager: OnceCell::new() })
+        Arc::new(Self {
+            manager: OnceCell::new(),
+        })
     }
 
     pub fn manager(&self) -> Option<&Arc<super::core::scheduler::PomodoroManager>> {
@@ -32,7 +34,7 @@ impl Feature for PomodoroFeature {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
-    
+
     fn name(&self) -> &'static str {
         "pomodoro"
     }
@@ -75,7 +77,7 @@ impl Feature for PomodoroFeature {
             let migration = super::data::migration::PomodoroMigration;
             Box::pin(async move { migration.up(manager).await })
         });
-        
+
         // 重构数据库结构（新迁移）
         registry.register_migration("pomodoro_restructure_migration", |manager| {
             let migration = super::data::restructure_migration::PomodoroRestructureMigration;
@@ -86,6 +88,8 @@ impl Feature for PomodoroFeature {
 
 impl Default for PomodoroFeature {
     fn default() -> Self {
-        Self { manager: OnceCell::new() }
+        Self {
+            manager: OnceCell::new(),
+        }
     }
 }

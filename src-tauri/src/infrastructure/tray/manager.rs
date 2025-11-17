@@ -3,8 +3,8 @@ use tauri::{
     AppHandle, Wry,
 };
 
-use crate::features::window::manager as window;
 use super::registry::TrayRegistry;
+use crate::features::window::manager as window;
 
 /// 托盘管理器
 pub struct TrayManager {
@@ -65,7 +65,7 @@ impl TrayManager {
     }
 
     /// 更新托盘菜单
-    /// 
+    ///
     /// 重新构建菜单（会重新评估所有 is_visible 条件）
     pub fn update_tray_menu(&self, app: &AppHandle<Wry>) -> tauri::Result<()> {
         if let Some(tray) = app.tray_by_id("main") {

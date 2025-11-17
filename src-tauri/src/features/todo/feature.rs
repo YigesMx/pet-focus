@@ -8,11 +8,11 @@ use sea_orm_migration::MigrationTrait;
 use crate::core::{AppState, Feature};
 use crate::infrastructure::database::DatabaseRegistry;
 
-use super::data::{migration, add_subtask_migration};
 use super::core::scheduler::DueNotificationScheduler;
+use super::data::{add_subtask_migration, migration};
 
 /// Todo Feature
-/// 
+///
 /// 负责 Todo 功能的所有逻辑，包括：
 /// - 数据库 Entity 和 Migration
 /// - CRUD Commands
@@ -28,7 +28,7 @@ impl TodoFeature {
             scheduler: OnceCell::new(),
         })
     }
-    
+
     /// 获取调度器（仅在初始化后可用）
     pub fn scheduler(&self) -> Option<&Arc<DueNotificationScheduler>> {
         self.scheduler.get()
@@ -40,7 +40,7 @@ impl Feature for TodoFeature {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
-    
+
     fn name(&self) -> &'static str {
         "todo"
     }
@@ -49,17 +49,13 @@ impl Feature for TodoFeature {
         // 注册 Todo 数据表迁移
         registry.register_migration("todo_migration", |manager| {
             let migration = migration::TodoMigration;
-            Box::pin(async move {
-                migration.up(manager).await
-            })
+            Box::pin(async move { migration.up(manager).await })
         });
-        
+
         // 注册子任务支持迁移
         registry.register_migration("add_subtask_migration", |manager| {
             let migration = add_subtask_migration::AddSubtaskMigration;
-            Box::pin(async move {
-                migration.up(manager).await
-            })
+            Box::pin(async move { migration.up(manager).await })
         });
     }
 
@@ -80,7 +76,10 @@ impl Feature for TodoFeature {
     }
 
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
-    fn register_ws_handlers(&self, registry: &mut crate::infrastructure::webserver::HandlerRegistry) {
+    fn register_ws_handlers(
+        &self,
+        registry: &mut crate::infrastructure::webserver::HandlerRegistry,
+    ) {
         super::api::handlers::register_handlers(registry);
     }
 
@@ -90,14 +89,15 @@ impl Feature for TodoFeature {
             app_state.db().clone(),
             Arc::new(app_state.notification().clone()),
         ));
-        
+
         // 保存到 Feature 中
-        self.scheduler.set(scheduler.clone())
+        self.scheduler
+            .set(scheduler.clone())
             .map_err(|_| anyhow::anyhow!("Scheduler already initialized"))?;
-        
+
         // 触发首次调度
         scheduler.reschedule().await;
-        
+
         println!("[TodoFeature] Initialized with due notification scheduler");
         Ok(())
     }

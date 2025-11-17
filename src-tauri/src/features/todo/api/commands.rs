@@ -138,10 +138,7 @@ pub async fn update_todo_details(
 
 /// 获取指定任务的所有子任务
 #[tauri::command]
-pub async fn get_subtasks(
-    state: State<'_, AppState>,
-    parent_id: i32,
-) -> Result<Vec<Todo>, String> {
+pub async fn get_subtasks(state: State<'_, AppState>, parent_id: i32) -> Result<Vec<Todo>, String> {
     service::get_subtasks(state.db(), parent_id)
         .await
         .map_err(|err| err.to_string())

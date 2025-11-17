@@ -38,4 +38,3 @@ impl MigrationTrait for PomodoroMigration {
             .await
     }
 }
-

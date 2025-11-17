@@ -6,7 +6,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Context, Result};
-use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc, TimeZone};
+use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Utc};
 use chrono_tz::Tz;
 use quick_xml::{events::Event, Reader};
 use reqwest::{header, Client, Method, Request, StatusCode};
@@ -48,7 +48,7 @@ pub struct CalDavItem {
     pub reminder_minutes: Option<i32>,
     pub timezone: Option<String>,
     pub recurrence_rule: Option<String>,
-    pub related_to: Option<String>,  // 父任务的 UID (用于子任务)
+    pub related_to: Option<String>, // 父任务的 UID (用于子任务)
 }
 
 impl CalDavItem {
@@ -85,7 +85,7 @@ impl CalDavClient {
         let normalized_url = format!("{}/", config.url.trim_end_matches('/'));
         eprintln!("[CalDAV] Creating client with URL: {}", normalized_url);
         eprintln!("[CalDAV] Username: {}", config.username);
-        
+
         let calendar_url = Url::parse(&normalized_url).context("invalid CalDAV calendar URL")?;
 
         let http = Client::builder()
@@ -110,7 +110,7 @@ impl CalDavClient {
     pub async fn fetch_todos(&self) -> Result<Vec<RemoteTodo>> {
         eprintln!("[CalDAV] Fetching todos from: {}", self.calendar_url);
         eprintln!("[CalDAV] Username: {}", self.username);
-        
+
         let method = Method::from_bytes(b"REPORT")
             .map_err(|err| anyhow!("failed to create REPORT method: {err}"))?;
 
@@ -134,7 +134,7 @@ impl CalDavClient {
 
         let status = response.status();
         eprintln!("[CalDAV] Response status: {}", status);
-        
+
         if !status.is_success() {
             let text = response.text().await.unwrap_or_default();
             eprintln!("[CalDAV] Error response body: {}", text);
@@ -155,10 +155,13 @@ impl CalDavClient {
         let mut todos = Vec::with_capacity(items.len());
         for item in items {
             let absolute_href = self.resolve_href(&item.href)?;
-            
-            println!("\n========== Raw iCalendar Data for {} ==========\n{}", absolute_href, item.calendar_data);
+
+            println!(
+                "\n========== Raw iCalendar Data for {} ==========\n{}",
+                absolute_href, item.calendar_data
+            );
             println!("=========================================\n");
-            
+
             let parsed = parse_ical_todo(&item.calendar_data)
                 .with_context(|| format!("failed to parse VTODO from {}", absolute_href))?;
             todos.push(RemoteTodo {
@@ -194,7 +197,7 @@ impl CalDavClient {
     /// 获取单个 Todo（用于冲突解决时获取远端最新版本）
     pub async fn get_todo(&self, href: &str) -> Result<RemoteTodo> {
         let resource = self.resolve_href(href)?;
-        
+
         let response = self
             .send_authenticated_request(Method::GET, &resource, &[], None)
             .await?;
@@ -267,7 +270,8 @@ impl CalDavClient {
         }
 
         // 相对路径，使用 calendar_url 拼接
-        let result = self.calendar_url
+        let result = self
+            .calendar_url
             .join(href)
             .with_context(|| format!("failed to resolve CalDAV resource href: {href}"))?;
         Ok(result)
@@ -281,7 +285,7 @@ impl CalDavClient {
         body: Option<&str>,
     ) -> Result<reqwest::Response> {
         eprintln!("[CalDAV Auth] Sending request: {} {}", method, url);
-        
+
         let request = self.build_request(method.clone(), url, headers, body, None)?;
         let mut response = self
             .http
@@ -291,13 +295,15 @@ impl CalDavClient {
 
         let status = response.status();
         eprintln!("[CalDAV Auth] Initial response status: {}", status);
-        
+
         if status == StatusCode::UNAUTHORIZED {
             eprintln!("[CalDAV Auth] Got 401, attempting digest authentication...");
             let challenge = self.extract_digest_challenge(&response)?;
-            eprintln!("[CalDAV Auth] Digest challenge: realm={}, nonce={}", 
-                challenge.realm, challenge.nonce);
-            
+            eprintln!(
+                "[CalDAV Auth] Digest challenge: realm={}, nonce={}",
+                challenge.realm, challenge.nonce
+            );
+
             let uri = request_uri(url);
             let digest_header = self.build_digest_authorization(&challenge, &method, &uri, body)?;
             let retry_request =
@@ -308,7 +314,7 @@ impl CalDavClient {
 
             let retry_status = response.status();
             eprintln!("[CalDAV Auth] Retry response status: {}", retry_status);
-            
+
             if retry_status == StatusCode::UNAUTHORIZED {
                 let text = response.text().await.unwrap_or_default();
                 eprintln!("[CalDAV Auth] Authentication failed after retry: {}", text);
@@ -317,7 +323,7 @@ impl CalDavClient {
                 ));
             }
         }
-        
+
         if status == StatusCode::FORBIDDEN {
             let text = response.text().await.unwrap_or_default();
             eprintln!("[CalDAV Auth] Got 403 Forbidden: {}", text);
@@ -469,10 +475,7 @@ impl CalDavClient {
             ));
         } else if let Some(tag) = etag {
             let normalized_etag = normalize_etag_condition(tag);
-            headers.push((
-                header::HeaderName::from_static("if-match"),
-                normalized_etag,
-            ));
+            headers.push((header::HeaderName::from_static("if-match"), normalized_etag));
         }
 
         let response = self
@@ -809,7 +812,7 @@ fn parse_ical_todo(ics: &str) -> Result<CalDavItem> {
         .iter()
         .find_map(|alarm| get_property_value(&alarm.properties, "TRIGGER"))
         .and_then(parse_trigger_offset);
-    
+
     // 解析 RELATED-TO 字段（用于子任务）
     let related_to = get_property_value(&todo.properties, "RELATED-TO");
 
@@ -869,7 +872,7 @@ fn get_datetime_property(
         None => return (None, None),
     };
     let timezone = get_property_parameter(properties, name, "TZID");
-    
+
     // 解析时间，如果有 TZID，需要将本地时间转换为 UTC
     let parsed = parse_ical_datetime(&value, timezone.as_deref()).ok();
     (parsed, timezone)
@@ -902,7 +905,7 @@ fn parse_ical_datetime(value: &str, tzid: Option<&str>) -> Result<DateTime<Utc>>
     let naive = NaiveDateTime::parse_from_str(value, "%Y%m%dT%H%M%S")
         .or_else(|_| NaiveDateTime::parse_from_str(value, "%Y%m%dT%H%M"))
         .context("failed to parse datetime")?;
-    
+
     // 如果有 TZID，将本地时间转换为 UTC
     if let Some(tz_str) = tzid {
         if let Ok(tz) = tz_str.parse::<Tz>() {
@@ -912,7 +915,7 @@ fn parse_ical_datetime(value: &str, tzid: Option<&str>) -> Result<DateTime<Utc>>
             }
         }
     }
-    
+
     // 没有时区信息，当作 UTC 处理
     Ok(DateTime::<Utc>::from_naive_utc_and_offset(naive, Utc))
 }

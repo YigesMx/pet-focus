@@ -81,7 +81,11 @@ impl SettingService {
     }
 
     /// 设置布尔值
-    pub async fn set_bool(db: &DatabaseConnection, key: &str, value: bool) -> Result<entity::Model> {
+    pub async fn set_bool(
+        db: &DatabaseConnection,
+        key: &str,
+        value: bool,
+    ) -> Result<entity::Model> {
         Self::set(db, key, &value.to_string()).await
     }
 }

@@ -18,7 +18,9 @@ pub fn register_handlers(feature: &PomodoroFeature, registry: &mut webserver::Ha
     // Start
     registry.register_call("pomodoro.start", move |_method, _params, ctx| {
         Box::pin(async move {
-            let cfg = service::get_config(ctx.db()).await.context("Failed to read config")?;
+            let cfg = service::get_config(ctx.db())
+                .await
+                .context("Failed to read config")?;
             let mgr = get_manager(&ctx).context("Pomodoro manager not found")?;
             let status = mgr.start(cfg).await.context("Failed to start")?;
             Ok(serde_json::to_value(status).unwrap_or(json!({})))
@@ -46,7 +48,9 @@ pub fn register_handlers(feature: &PomodoroFeature, registry: &mut webserver::Ha
     // Skip
     registry.register_call("pomodoro.skip", |_method, _params, ctx| {
         Box::pin(async move {
-            let cfg = service::get_config(ctx.db()).await.context("Failed to read config")?;
+            let cfg = service::get_config(ctx.db())
+                .await
+                .context("Failed to read config")?;
             let mgr = get_manager(&ctx).context("Pomodoro manager not found")?;
             let status = mgr.skip(cfg).await;
             Ok(serde_json::to_value(status).unwrap_or(json!({})))
@@ -73,10 +77,14 @@ pub fn register_handlers(feature: &PomodoroFeature, registry: &mut webserver::Ha
 }
 
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
-fn get_manager(ctx: &crate::infrastructure::webserver::core::ws::ApiContext) -> Option<std::sync::Arc<crate::features::pomodoro::core::scheduler::PomodoroManager>> {
+fn get_manager(
+    ctx: &crate::infrastructure::webserver::core::ws::ApiContext,
+) -> Option<std::sync::Arc<crate::features::pomodoro::core::scheduler::PomodoroManager>> {
     use tauri::Manager;
     let state = ctx.app_handle().try_state::<crate::core::AppState>()?;
     let feature = state.get_feature("pomodoro")?;
-    let feature = feature.as_any().downcast_ref::<crate::features::pomodoro::PomodoroFeature>()?;
+    let feature = feature
+        .as_any()
+        .downcast_ref::<crate::features::pomodoro::PomodoroFeature>()?;
     feature.manager().cloned()
 }

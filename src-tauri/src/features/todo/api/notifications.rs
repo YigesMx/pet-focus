@@ -3,9 +3,9 @@ use serde_json::json;
 use crate::infrastructure::notification::{NotificationManager, ToastLevel};
 
 /// Todo Feature 的所有通知定义
-/// 
+///
 /// 统一管理 Todo 相关的用户通知（Toast + WebSocket）
-/// 
+///
 /// 所有通知都通过 NotificationManager 统一发送，确保：
 /// - Toast 通知：前端用户看到 Sonner 提示
 /// - WebSocket 通知：外部 API 客户端收到事件推送
@@ -66,10 +66,7 @@ pub fn notify_todo_due(notification_manager: &NotificationManager, todo_id: i32,
     );
 
     // 系统通知（原生通知中心）
-    let _ = notification_manager.send_native(
-        "待办到期".to_string(),
-        format!("{} 已到期", title),
-    );
+    let _ = notification_manager.send_native("待办到期".to_string(), format!("{} 已到期", title));
 }
 
 /// CalDAV 同步成功通知
@@ -93,24 +90,15 @@ pub fn notify_sync_success(
 
 /// CalDAV 同步失败通知
 pub fn notify_sync_error(notification_manager: &NotificationManager, error: &str) {
-    let _ = notification_manager.send_toast(
-        format!("同步失败：{}", error),
-        ToastLevel::Error,
-    );
+    let _ = notification_manager.send_toast(format!("同步失败：{}", error), ToastLevel::Error);
 }
 
 /// CalDAV 配置保存成功通知
 pub fn notify_caldav_config_saved(notification_manager: &NotificationManager) {
-    let _ = notification_manager.send_toast(
-        "CalDAV 配置已保存".to_string(),
-        ToastLevel::Success,
-    );
+    let _ = notification_manager.send_toast("CalDAV 配置已保存".to_string(), ToastLevel::Success);
 }
 
 /// CalDAV 配置清除成功通知
 pub fn notify_caldav_config_cleared(notification_manager: &NotificationManager) {
-    let _ = notification_manager.send_toast(
-        "已清除 CalDAV 配置".to_string(),
-        ToastLevel::Success,
-    );
+    let _ = notification_manager.send_toast("已清除 CalDAV 配置".to_string(), ToastLevel::Success);
 }

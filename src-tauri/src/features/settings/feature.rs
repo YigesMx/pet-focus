@@ -22,7 +22,7 @@ impl Feature for SettingsFeature {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
-    
+
     fn name(&self) -> &'static str {
         "settings"
     }
@@ -31,9 +31,7 @@ impl Feature for SettingsFeature {
         // 注册 Settings 数据表迁移
         registry.register_migration("settings_migration", |manager| {
             let migration = migration::SettingsMigration;
-            Box::pin(async move {
-                migration.up(manager).await
-            })
+            Box::pin(async move { migration.up(manager).await })
         });
     }
 

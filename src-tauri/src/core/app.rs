@@ -8,28 +8,28 @@ use crate::core::Feature;
 use crate::features::todo::sync::CalDavSyncManager;
 use crate::infrastructure::notification::NotificationManager;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
-use crate::infrastructure::webserver::WebServerManager;
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
 use crate::infrastructure::tray::TrayManager;
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+use crate::infrastructure::webserver::WebServerManager;
 
 /// 应用全局状态
-/// 
+///
 /// 管理所有 Features 和基础设施组件
 pub struct AppState {
     app_handle: AppHandle<Wry>,
     db: DatabaseConnection,
     features: HashMap<&'static str, Arc<dyn Feature>>,
-    
+
     // 通知管理器
     notification_manager: NotificationManager,
-    
+
     // CalDAV 同步管理器
     caldav_sync_manager: CalDavSyncManager,
-    
+
     // WebServer 管理器（桌面平台）
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     webserver_manager: WebServerManager,
-    
+
     // 系统托盘管理器（桌面平台）
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     tray_manager: TrayManager,
@@ -48,7 +48,7 @@ impl AppState {
 
         // 创建通知管理器
         let notification_manager = NotificationManager::new(app_handle.clone());
-        
+
         // 创建 CalDAV 同步管理器
         let caldav_sync_manager = CalDavSyncManager::new(db.clone(), app_handle.clone());
 
@@ -106,11 +106,11 @@ impl AppState {
     pub fn tray_manager(&self) -> &TrayManager {
         &self.tray_manager
     }
-    
+
     /// 获取 Todo Feature 的调度器
     pub fn todo_scheduler(&self) -> Option<&Arc<crate::features::todo::DueNotificationScheduler>> {
         use crate::features::todo::TodoFeature;
-        
+
         self.get_feature("todo")
             .and_then(|feature| feature.as_any().downcast_ref::<TodoFeature>())
             .and_then(|todo_feature| todo_feature.scheduler())
@@ -123,7 +123,7 @@ impl AppState {
     }
 
     /// 后初始化阶段（在 app.manage() 之后调用）
-    /// 
+    ///
     /// 此时 AppState 已经被 Tauri 托管，可以通过 app.try_state() 访问。
     /// 执行需要访问已托管状态的初始化逻辑。
     pub async fn post_initialize(&self, app: &AppHandle<Wry>) -> anyhow::Result<()> {
@@ -134,7 +134,7 @@ impl AppState {
             self.tray_manager
                 .create_tray(app)
                 .map_err(|e| anyhow::anyhow!("Failed to create tray: {}", e))?;
-            
+
             // 2. 自动启动 WebServer（如果配置启用）
             self.webserver_manager
                 .try_auto_start(self.db.clone(), app.clone())

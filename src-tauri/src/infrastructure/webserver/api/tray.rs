@@ -1,8 +1,8 @@
 use tauri::{AppHandle, Emitter, Manager};
 
+use crate::features::settings::core::service::SettingService;
 use crate::infrastructure::tray::TrayMenuItem;
 use crate::AppState;
-use crate::features::settings::core::service::SettingService;
 
 const WEBSERVER_STATUS_CHANGED_EVENT: &str = "webserver-status-changed";
 
@@ -23,12 +23,9 @@ pub fn start_webserver_item() -> TrayMenuItem {
                         Ok(_) => {
                             println!("Web server started successfully");
                             // 保存设置
-                            let _ = SettingService::set_bool(
-                                state.db(),
-                                "webserver.auto_start",
-                                true,
-                            )
-                            .await;
+                            let _ =
+                                SettingService::set_bool(state.db(), "webserver.auto_start", true)
+                                    .await;
                             // 通知前端状态变化
                             let _ = app_handle.emit(WEBSERVER_STATUS_CHANGED_EVENT, true);
                             // 更新托盘菜单
@@ -65,12 +62,9 @@ pub fn stop_webserver_item() -> TrayMenuItem {
                         Ok(_) => {
                             println!("Web server stopped successfully");
                             // 保存设置
-                            let _ = SettingService::set_bool(
-                                state.db(),
-                                "webserver.auto_start",
-                                false,
-                            )
-                            .await;
+                            let _ =
+                                SettingService::set_bool(state.db(), "webserver.auto_start", false)
+                                    .await;
                             // 通知前端状态变化
                             let _ = app_handle.emit(WEBSERVER_STATUS_CHANGED_EVENT, false);
                             // 更新托盘菜单

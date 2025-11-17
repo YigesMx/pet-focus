@@ -56,18 +56,20 @@ pub fn toggle_main_window(app: &AppHandle<Wry>) -> Result<(), String> {
 }
 
 /// 处理窗口关闭请求
-/// 
+///
 /// 在桌面平台上，阻止窗口关闭并隐藏窗口
 pub fn handle_window_close_request<R: Runtime>(window: &Window<R>, api: &CloseRequestApi) {
     // 阻止窗口关闭，改为隐藏
     api.prevent_close();
-    
+
     // 隐藏窗口
     let _ = window.hide();
-    
+
     // macOS: 窗口隐藏时隐藏 Dock 图标
     #[cfg(target_os = "macos")]
     {
-        let _ = window.app_handle().set_activation_policy(tauri::ActivationPolicy::Accessory);
+        let _ = window
+            .app_handle()
+            .set_activation_policy(tauri::ActivationPolicy::Accessory);
     }
 }

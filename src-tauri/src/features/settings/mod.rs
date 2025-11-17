@@ -1,5 +1,5 @@
 // Settings Feature - 设置管理
-// 
+//
 // 分层架构：
 // - api/: API 接口层（commands）
 // - core/: 核心业务层（service, models）

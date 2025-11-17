@@ -13,7 +13,7 @@ type MigrationFn = Box<
 >;
 
 /// 数据库注册表
-/// 
+///
 /// 用于收集所有 Features 注册的 Migrations，并统一执行
 pub struct DatabaseRegistry {
     migrations: Vec<(&'static str, MigrationFn)>,
@@ -29,7 +29,9 @@ impl DatabaseRegistry {
     /// 注册一个 Migration
     pub fn register_migration<F>(&mut self, name: &'static str, migration_fn: F)
     where
-        F: for<'a> Fn(&'a SchemaManager<'a>) -> Pin<Box<dyn Future<Output = Result<(), DbErr>> + Send + 'a>>
+        F: for<'a> Fn(
+                &'a SchemaManager<'a>,
+            ) -> Pin<Box<dyn Future<Output = Result<(), DbErr>> + Send + 'a>>
             + Send
             + Sync
             + 'static,
@@ -40,14 +42,14 @@ impl DatabaseRegistry {
     /// 执行所有已注册的 Migrations
     pub async fn run_migrations(&self, db: &sea_orm::DatabaseConnection) -> Result<()> {
         let manager = SchemaManager::new(db);
-        
+
         for (name, migration_fn) in &self.migrations {
             println!("Running migration: {}", name);
             migration_fn(&manager)
                 .await
                 .map_err(|e| anyhow::anyhow!("Migration '{}' failed: {}", name, e))?;
         }
-        
+
         Ok(())
     }
 }
