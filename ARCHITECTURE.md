@@ -222,6 +222,24 @@ features/todo/
 - **macOS 特性**: Dock 图标动态显示/隐藏
 - **关闭行为**: 关闭窗口 → 隐藏到托盘（不退出）
 
+##### 4. Pomodoro Feature (番茄钟)
+- **核心功能**: 专注/休息计时、状态管理
+- **生命周期**: Start -> Tick -> Finish/Stop/Skip
+- **WebSocket 事件**:
+  - `pomodoro.status`: 状态变更广播
+  - `pomodoro.tick`: 每秒倒计时更新
+  - `pomodoro.events`: 生命周期事件 (start/finish/stop/skip)
+- **持久化**: 自动记录专注会话到数据库
+
+##### 5. Pet Feature (桌面宠物)
+- **功能**: 管理 Godot 宠物进程 (Lynx)
+- **Sidecar**: 使用 Tauri Sidecar 机制打包和运行外部二进制
+- **进程管理**:
+  - 启动/停止/状态查询
+  - 自动重启/监控
+  - 跟随应用自启动 (可配置)
+- **通信**: 通过 WebSocket 与主进程交互 (Lynx 作为 WebSocket 客户端)
+
 ---
 
 ### 基础设施 (infrastructure)
@@ -657,7 +675,8 @@ fn register_ws_handlers(&self, registry: &mut HandlerRegistry) {
 
 ## 未来规划
 
-- [ ] Pomodoro Feature（番茄钟）
+- [x] Pomodoro Feature（番茄钟）
+- [x] Pet Feature (桌面宠物)
 - [ ] 多语言支持 (i18n)
 - [ ] 数据导入/导出
 - [ ] 更多 CalDAV 服务器适配
