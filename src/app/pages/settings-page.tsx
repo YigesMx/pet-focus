@@ -9,6 +9,7 @@ import { CalDavSettings } from "@/features/caldav/components/caldav-settings"
 import { ThemePreferenceSelector } from "@/features/settings/components/theme-preference"
 import { ExternalApiToggle } from "@/features/webserver/components/external-api-toggle"
 import { useWebServerControl } from "@/features/webserver/hooks/useWebServerControl"
+import { PetControl } from "@/features/pet/components/pet-control"
 
 export function SettingsPage() {
   const { isServerRunning, isServerBusy, isPlatformSupported, statusMessage, toggleApi } =
@@ -21,7 +22,7 @@ export function SettingsPage() {
         <CardDescription>管理应用程序的各项设置</CardDescription>
       </CardHeader>
       <CardContent>
-        <Accordion type="multiple" defaultValue={["appearance"]} className="w-full">
+        <Accordion type="multiple" defaultValue={["appearance", "pet"]} className="w-full">
           <AccordionItem value="appearance">
             <AccordionTrigger>
               <span className="text-base font-semibold">外观</span>
@@ -30,6 +31,18 @@ export function SettingsPage() {
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">自定义应用程序的外观和主题</p>
                 <ThemePreferenceSelector />
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="pet">
+            <AccordionTrigger>
+              <span className="text-base font-semibold">桌面宠物</span>
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">控制桌面宠物的显示与隐藏</p>
+                <PetControl />
               </div>
             </AccordionContent>
           </AccordionItem>

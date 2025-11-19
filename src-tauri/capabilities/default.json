@@ -20,6 +20,16 @@
     "core:menu:allow-prepend",
     "core:menu:allow-insert",
     "opener:default",
-    "notification:default"
+    "notification:default",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "binaries/Lynx",
+          "sidecar": true,
+          "args": true
+        }
+      ]
+    }
   ]
 }

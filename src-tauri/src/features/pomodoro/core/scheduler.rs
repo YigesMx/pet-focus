@@ -344,6 +344,14 @@ async fn advance_phase_internal(
     );
     let _ = notifier.send_native(title.to_string(), body.to_string());
 
+    notifier.send_websocket_event(
+        WS_EVENT_EVENTS.to_string(),
+        serde_json::json!({
+            "type": "start",
+            "mode": format_mode(next_mode),
+        }),
+    );
+
     // 立即广播最新状态 & 更新托盘
     let status = {
         let s = state_ptr.lock().await;

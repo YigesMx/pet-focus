@@ -40,6 +40,7 @@ iana-time-zone = "0.1"
 tokio = { version = "1.39", features = ["macros", "rt-multi-thread", "signal", "net", "sync"] }
 async-trait = "0.1.89"
 sea-orm-migration = "1.1.17"
+tauri-plugin-shell = "2.3.3"
 
 # 仅桌面平台启用系统托盘和 Web 服务器功能
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]

@@ -8,7 +8,8 @@ pub use core::AppState;
 
 use core::Feature;
 use features::{
-    pomodoro::PomodoroFeature, settings::SettingsFeature, todo::TodoFeature, window::WindowFeature,
+    pet::PetFeature, pomodoro::PomodoroFeature, settings::SettingsFeature, todo::TodoFeature,
+    window::WindowFeature,
 };
 use infrastructure::database::{init_db, DatabaseRegistry};
 use std::sync::Arc;
@@ -21,6 +22,7 @@ fn init_features() -> Vec<Arc<dyn Feature>> {
         SettingsFeature::new(),
         PomodoroFeature::new(),
         Arc::new(WindowFeature::new()),
+        PetFeature::new(),
     ]
 }
 
@@ -29,6 +31,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             let handle = app.handle();
 
