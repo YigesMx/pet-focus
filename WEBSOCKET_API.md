@@ -766,6 +766,82 @@ type WsMessage =
 
 ---
 
+### 订阅 Pomodoro 事件
+
+**1. 订阅频道**:
+```json
+{
+  "type": "listen",
+  "body": {
+    "channel": "pomodoro.events"
+  }
+}
+```
+
+**2. 接收事件**:
+
+**开始事件**:
+```json
+{
+  "type": "event",
+  "body": {
+    "channel": "pomodoro.events",
+    "data": {
+      "type": "start",
+      "mode": "focus"
+    }
+  }
+}
+```
+
+**结束事件**:
+```json
+{
+  "type": "event",
+  "body": {
+    "channel": "pomodoro.events",
+    "data": {
+      "type": "finish",
+      "mode": "focus"
+    }
+  }
+}
+```
+
+**停止事件**:
+```json
+{
+  "type": "event",
+  "body": {
+    "channel": "pomodoro.events",
+    "data": {
+      "type": "stop",
+      "mode": "focus"
+    }
+  }
+}
+```
+
+**跳过事件**:
+```json
+{
+  "type": "event",
+  "body": {
+    "channel": "pomodoro.events",
+    "data": {
+      "type": "skip",
+      "mode": "focus"
+    }
+  }
+}
+```
+
+**事件字段说明**:
+- `type` (string): 事件类型 - `"start"` | `"finish"` | `"stop"` | `"skip"`
+- `mode` (string): 模式 - `"focus"` | `"short_break"` | `"long_break"` | `"idle"`
+
+---
+
 ## 错误处理
 
 ### 错误响应格式

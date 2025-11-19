@@ -18,6 +18,7 @@ pub const POMODORO_TICK_EVENT: &str = "pomodoro-tick";
 pub const POMODORO_SESSION_RECORDED_EVENT: &str = "pomodoro-session-recorded";
 pub const WS_EVENT_STATUS: &str = "pomodoro.status";
 pub const WS_EVENT_TICK: &str = "pomodoro.tick";
+pub const WS_EVENT_EVENTS: &str = "pomodoro.events";
 
 #[derive(Debug)]
 struct State {
@@ -95,11 +96,22 @@ impl PomodoroManager {
         {
             eprintln!("persist skipped error: {}", e);
         }
+
+        let mode = { self.state.lock().await.mode };
+        self.notifier.send_websocket_event(
+            WS_EVENT_EVENTS.to_string(),
+            serde_json::json!({
+                "type": "skip",
+                "mode": format_mode(mode),
+            }),
+        );
+
         self.advance_phase(cfg).await;
         self.status().await
     }
 
     pub async fn stop(&self) -> PomodoroStatus {
+        let previous_mode = { self.state.lock().await.mode };
         {
             let mut s = self.state.lock().await;
             s.running = false;
@@ -115,6 +127,15 @@ impl PomodoroManager {
         {
             eprintln!("persist stopped error: {}", e);
         }
+
+        self.notifier.send_websocket_event(
+            WS_EVENT_EVENTS.to_string(),
+            serde_json::json!({
+                "type": "stop",
+                "mode": format_mode(previous_mode),
+            }),
+        );
+
         self.abort_tick().await;
         self.broadcast_status().await;
         self.status().await
@@ -195,6 +216,14 @@ impl PomodoroManager {
 
                 if finished {
                     // 阶段结束，切换下一阶段
+                    notifier.send_websocket_event(
+                        WS_EVENT_EVENTS.to_string(),
+                        serde_json::json!({
+                            "type": "finish",
+                            "mode": format_mode(mode),
+                        }),
+                    );
+
                     // 持久化本阶段
                     if let Err(e) = persist_finished_phase(&state_ptr, &manager_app).await {
                         eprintln!("Pomodoro persist error: {}", e);
@@ -238,6 +267,15 @@ impl PomodoroManager {
         let _ = self
             .notifier
             .send_native(title.to_string(), body.to_string());
+        
+        self.notifier.send_websocket_event(
+            WS_EVENT_EVENTS.to_string(),
+            serde_json::json!({
+                "type": "start",
+                "mode": format_mode(mode),
+            }),
+        );
+
         self.broadcast_status().await;
     }
 
