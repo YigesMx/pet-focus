@@ -56,10 +56,15 @@ pub fn get_handler() -> impl Fn(Invoke<tauri::Wry>) -> bool + Send + Sync + 'sta
         #[cfg(not(any(target_os = "android", target_os = "ios")))]
         crate::infrastructure::webserver::api::commands::web_server_status,
         // Pet Feature Commands
+        #[cfg(target_os = "windows")]
         crate::features::pet::commands::pet_start,
+        #[cfg(target_os = "windows")]
         crate::features::pet::commands::pet_stop,
+        #[cfg(target_os = "windows")]
         crate::features::pet::commands::pet_status,
+        #[cfg(target_os = "windows")]
         crate::features::pet::commands::get_pet_auto_start,
+        #[cfg(target_os = "windows")]
         crate::features::pet::commands::set_pet_auto_start,
     ]
 }

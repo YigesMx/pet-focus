@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 
 import { reportError } from "@/shared/lib/report-error"
 
-import type { TodoDetailUpdate } from "@/features/todo/types/todo.types"
+import type { Todo, TodoDetailUpdate } from "@/features/todo/types/todo.types"
 
 import { createTodo, deleteTodo, updateTodo, updateTodoDetails, updateTodoParent } from "../api/todo.api"
 import { todoKeys } from "../api/todo.keys"
@@ -38,7 +38,7 @@ type MutationTuple<Input> = {
 }
 
 type TodoMutations = {
-  createTodo: (title?: string) => Promise<void>
+  createTodo: (title?: string) => Promise<Todo | undefined>
   updateTitle: (id: number, title: string) => Promise<void>
   toggleCompleted: (id: number, completed: boolean) => Promise<void>
   updateDetails: (id: number, details: TodoDetailUpdate) => Promise<void>
@@ -173,9 +173,10 @@ export function useTodoMutations(): TodoMutations {
     () => ({
       createTodo: async (title?: string) => {
         try {
-          await createTodoMutation.mutateAsync(title)
+          return await createTodoMutation.mutateAsync(title)
         } catch {
           /* 已在 onError 中处理 */
+          return undefined
         }
       },
       updateTitle: async (id: number, title: string) => {

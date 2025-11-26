@@ -64,6 +64,16 @@ export function TodosPage({ onStartFocus }: TodosPageProps) {
     [updateDetails],
   )
 
+  const handleAddSubtask = useCallback(
+    async (parentId: number) => {
+      const newTodo = await createTodo()
+      if (newTodo) {
+        await updateParent(newTodo.id, parentId)
+      }
+    },
+    [createTodo, updateParent],
+  )
+
   return (
     <>
       <Card>
@@ -88,6 +98,7 @@ export function TodosPage({ onStartFocus }: TodosPageProps) {
             onUpdateParent={(id, parentId) => {
               void updateParent(id, parentId)
             }}
+            onAddSubtask={handleAddSubtask}
             onDelete={(id) => {
               void deleteTodo(id)
             }}

@@ -1,23 +1,31 @@
 import {
   type ChangeEvent,
-  useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react"
-import { Trash2, Play } from "lucide-react"
+import { Play, Trash, X, ChevronDown, ChevronRight, CalendarClock, Ellipsis, Plus } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { ButtonGroup } from "@/components/ui/button-group"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Item, ItemContent } from "@/components/ui/item"
-import { Textarea } from "@/components/ui/textarea"
-import { cn } from "@/shared/lib/utils"
 
 import type { Todo } from "@/features/todo/types/todo.types"
 
 type TodoItemProps = {
   todo: Todo
+  hasChildren: boolean
+  isExpanded: boolean
+  onToggleExpand: () => void
+  onAddSubtask: () => void
+  moreActionsOpen: boolean
+  setMoreActionsOpen: (open: boolean) => void
   disabled?: boolean
   onToggleCompleted: (id: number, completed: boolean) => void
   onUpdateTitle: (id: number, title: string) => void
@@ -28,6 +36,12 @@ type TodoItemProps = {
 
 export function TodoItem({
   todo,
+  hasChildren,
+  isExpanded,
+  onToggleExpand,
+  onAddSubtask,
+  moreActionsOpen,
+  setMoreActionsOpen,
   disabled = false,
   onToggleCompleted,
   onUpdateTitle,
@@ -36,22 +50,10 @@ export function TodoItem({
   onStartFocus,
 }: TodoItemProps) {
   const [draftTitle, setDraftTitle] = useState(todo.title)
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
-
-  const autoResize = useCallback(() => {
-    const textarea = textareaRef.current
-    if (!textarea) return
-    textarea.style.height = "auto"
-    textarea.style.height = `${textarea.scrollHeight}px`
-  }, [])
 
   useEffect(() => {
     setDraftTitle(todo.title)
   }, [todo.title])
-
-  useEffect(() => {
-    autoResize()
-  }, [draftTitle, autoResize])
 
   const handleBlur = () => {
     const normalized = draftTitle.trim()
@@ -64,11 +66,8 @@ export function TodoItem({
     onToggleCompleted(todo.id, checked === true)
   }
 
-  const handleChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
+  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     setDraftTitle(event.target.value)
-    const target = event.currentTarget
-    target.style.height = "auto"
-    target.style.height = `${target.scrollHeight}px`
   }
 
   const dueLabel = useMemo(() => {
@@ -83,79 +82,121 @@ export function TodoItem({
     })
   }, [todo.due_date])
 
+  const hasDueTime = !!todo.due_date
+
   return (
-    <Item
-      variant="outline"
-      size="sm"
-      className="bg-card shadow-sm transition hover:shadow-md"
-    >
-      <ItemContent className="gap-2">
-        <div className="flex items-center gap-3">
-          <Checkbox
-            checked={todo.completed}
-            onCheckedChange={handleToggle}
-            disabled={disabled}
-            aria-label={todo.completed ? "标记为未完成" : "标记为已完成"}
-          />
-          <Textarea
-            ref={textareaRef}
-            value={draftTitle}
-            disabled={disabled}
-            onChange={handleChange}
-            onBlur={handleBlur}
-            onKeyDown={(event) => {
-              if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-                event.currentTarget.blur()
-              }
-            }}
-            placeholder="记录你的待办事项"
-            className={cn(
-              "min-h-[2.5rem] flex-1 resize-none bg-transparent shadow-none",
-              todo.completed && "text-muted-foreground line-through",
-            )}
-            rows={1}
-          />
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground hover:text-destructive"
-            onClick={() => onDelete(todo.id)}
-            disabled={disabled}
-            aria-label="删除待办"
-          >
-            <Trash2 className="size-4" />
-          </Button>
-        </div>
-        <div className="flex items-center justify-end gap-3 text-sm text-muted-foreground">
-          <span
-            className={cn(
-              todo.notified && !todo.completed && "text-destructive font-medium",
-            )}
-          >
-            {dueLabel ? `到期：${dueLabel}` : "未设置到期时间"}
-          </span>
-          {!todo.completed && onStartFocus && (
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => onStartFocus(todo.id)}
-              disabled={disabled}
-              className="gap-1"
-            >
-              <Play className="size-3" />
-              开始
-            </Button>
-          )}
+    <ButtonGroup className="flex justify-between w-full">
+      <ButtonGroup className="flex-none">
+        {hasChildren && (
           <Button
             variant="outline"
-            size="sm"
-            onClick={() => onOpenDetails(todo)}
-            disabled={disabled}
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggleExpand()
+            }}
           >
-            详情
+            {isExpanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
           </Button>
-        </div>
-      </ItemContent>
-    </Item>
+        )}
+        {(!hasChildren || isExpanded) && (
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation()
+              onAddSubtask()
+            }}
+          >
+            <Plus className="size-4" />
+          </Button>
+        )}
+      </ButtonGroup>
+      <ButtonGroup className="grow">
+        <InputGroup>
+          <InputGroupAddon align="inline-start">
+            <Checkbox
+              checked={todo.completed}
+              onCheckedChange={handleToggle}
+              disabled={disabled}
+            />
+          </InputGroupAddon>
+          <InputGroupInput
+            value={draftTitle}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            placeholder="Todo Title"
+            className="text-ellipsis"
+            disabled={disabled}
+          />
+          {!moreActionsOpen && (
+            <InputGroupAddon align="inline-end">
+              <InputGroupButton
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onOpenDetails(todo)
+                }}
+              >
+                {hasDueTime ? (
+                  <span className="text-xs">{dueLabel}</span>
+                ) : (
+                  <CalendarClock className="size-4" />
+                )}
+              </InputGroupButton>
+            </InputGroupAddon>
+          )}
+        </InputGroup>
+      </ButtonGroup>
+      {moreActionsOpen && (
+        <>
+          <ButtonGroup>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={(e) => {
+                e.stopPropagation()
+                onDelete(todo.id)
+              }}
+            >
+              <Trash className="size-4" />
+            </Button>
+          </ButtonGroup>
+          <ButtonGroup>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={(e) => {
+                e.stopPropagation()
+                if (onStartFocus) onStartFocus(todo.id)
+              }}
+            >
+              <Play className="size-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={(e) => {
+                e.stopPropagation()
+                onOpenDetails(todo)
+              }}
+            >
+              <Ellipsis className="size-4" />
+            </Button>
+          </ButtonGroup>
+        </>
+      )}
+      <ButtonGroup>
+        <Button
+          variant={moreActionsOpen ? "default" : "outline"}
+          size="icon"
+          onClick={(e) => {
+            e.stopPropagation()
+            setMoreActionsOpen(!moreActionsOpen)
+          }}
+        >
+          {moreActionsOpen ? <X className="size-4" /> : <Ellipsis className="size-4" />}
+        </Button>
+      </ButtonGroup>
+    </ButtonGroup>
   )
 }

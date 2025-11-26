@@ -8,22 +8,28 @@ pub use core::AppState;
 
 use core::Feature;
 use features::{
-    pet::PetFeature, pomodoro::PomodoroFeature, settings::SettingsFeature, todo::TodoFeature,
-    window::WindowFeature,
+    pomodoro::PomodoroFeature, settings::SettingsFeature, todo::TodoFeature, window::WindowFeature,
 };
+#[cfg(target_os = "windows")]
+use features::pet::PetFeature;
 use infrastructure::database::{init_db, DatabaseRegistry};
 use std::sync::Arc;
 use tauri::Manager;
 
 /// 初始化所有 Features
 fn init_features() -> Vec<Arc<dyn Feature>> {
-    vec![
+    #[allow(unused_mut)]
+    let mut features: Vec<Arc<dyn Feature>> = vec![
         TodoFeature::new(),
         SettingsFeature::new(),
         PomodoroFeature::new(),
         Arc::new(WindowFeature::new()),
-        PetFeature::new(),
-    ]
+    ];
+
+    #[cfg(target_os = "windows")]
+    features.push(PetFeature::new());
+
+    features
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

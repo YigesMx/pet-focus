@@ -26,6 +26,7 @@ type TodoListProps = {
   onOpenDetails: (todo: Todo) => void
   onDelete: (id: number) => void
   onUpdateParent: (id: number, parentId: number | null) => void
+  onAddSubtask: (parentId: number) => void
   onStartFocus?: (todoId: number) => void
 }
 
@@ -45,7 +46,11 @@ type DraggableTodoItemProps = {
   onUpdateTitle: (id: number, title: string) => void
   onOpenDetails: (todo: Todo) => void
   onDelete: (id: number) => void
+  onUpdateParent: (id: number, parentId: number | null) => void
+  onAddSubtask: (parentId: number) => void
   onStartFocus?: (todoId: number) => void
+  openActionId: number | null
+  setOpenActionId: (id: number | null) => void
 }
 
 function DraggableTodoItem({
@@ -62,7 +67,11 @@ function DraggableTodoItem({
   onUpdateTitle,
   onOpenDetails,
   onDelete,
+  onUpdateParent,
+  onAddSubtask,
   onStartFocus,
+  openActionId,
+  setOpenActionId,
 }: DraggableTodoItemProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `todo-${todo.id}`,
@@ -91,18 +100,15 @@ function DraggableTodoItem({
         {...attributes}
         {...listeners}
       >
-        {hasChildren && (
-          <button
-            onClick={() => toggleExpanded(todo.id)}
-            className="mt-2 shrink-0 p-1 hover:bg-accent rounded"
-            aria-label={isExpanded ? "折叠子任务" : "展开子任务"}
-          >
-            {isExpanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-          </button>
-        )}
-        <div className="flex-1" style={{ marginLeft: hasChildren ? 0 : 24 }}>
+        <div className="flex-1">
           <TodoItem
             todo={todo}
+            hasChildren={hasChildren}
+            isExpanded={isExpanded}
+            onToggleExpand={() => toggleExpanded(todo.id)}
+            onAddSubtask={() => onAddSubtask(todo.id)}
+            moreActionsOpen={openActionId === todo.id}
+            setMoreActionsOpen={(open) => setOpenActionId(open ? todo.id : null)}
             disabled={busyTodoIds.has(todo.id)}
             onToggleCompleted={onToggleCompleted}
             onUpdateTitle={onUpdateTitle}
@@ -132,7 +138,11 @@ function DraggableTodoItem({
                 onUpdateTitle={onUpdateTitle}
                 onOpenDetails={onOpenDetails}
                 onDelete={onDelete}
+                onUpdateParent={onUpdateParent}
+                onAddSubtask={onAddSubtask}
                 onStartFocus={onStartFocus}
+                openActionId={openActionId}
+                setOpenActionId={setOpenActionId}
               />
               <DropZone todoId={child.id} position="after" dropTarget={dropTarget} />
             </div>
@@ -181,11 +191,13 @@ export function TodoList({
   onOpenDetails,
   onDelete,
   onUpdateParent,
+  onAddSubtask,
   onStartFocus,
 }: TodoListProps) {
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set())
   const [draggedId, setDraggedId] = useState<number | null>(null)
   const [dropTarget, setDropTarget] = useState<{ id: number; position: DropPosition } | null>(null)
+  const [openActionId, setOpenActionId] = useState<number | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -356,7 +368,11 @@ export function TodoList({
               onUpdateTitle={onUpdateTitle}
               onOpenDetails={onOpenDetails}
               onDelete={onDelete}
+              onUpdateParent={onUpdateParent}
+              onAddSubtask={onAddSubtask}
               onStartFocus={onStartFocus}
+              openActionId={openActionId}
+              setOpenActionId={setOpenActionId}
             />
             <DropZone todoId={todo.id} position="after" dropTarget={dropTarget} />
           </div>
@@ -367,6 +383,12 @@ export function TodoList({
           <div className="opacity-80 bg-background border-2 border-primary rounded-lg p-2 shadow-lg">
             <TodoItem
               todo={draggedTodo}
+              hasChildren={(childrenMap.get(draggedTodo.id) || []).length > 0}
+              isExpanded={expandedIds.has(draggedTodo.id)}
+              onToggleExpand={() => {}}
+              onAddSubtask={() => {}}
+              moreActionsOpen={false}
+              setMoreActionsOpen={() => {}}
               disabled={true}
               onToggleCompleted={() => {}}
               onUpdateTitle={() => {}}
