@@ -314,3 +314,38 @@ pub async fn pomodoro_get_adjusted_times(
         rest_minutes: rest,
     })
 }
+
+// ==================== Statistics Commands ====================
+
+#[derive(serde::Deserialize)]
+pub struct DailyStatsPayload {
+    pub from: String,
+    pub to: String,
+}
+
+/// 获取指定日期范围内的每日统计数据（用于砖墙展示）
+#[tauri::command]
+pub async fn pomodoro_get_daily_stats(
+    state: State<'_, AppState>,
+    payload: DailyStatsPayload,
+) -> Result<Vec<service::DailyStat>, String> {
+    let from = chrono::DateTime::parse_from_rfc3339(&payload.from)
+        .map_err(|e| e.to_string())?
+        .with_timezone(&chrono::Utc);
+    let to = chrono::DateTime::parse_from_rfc3339(&payload.to)
+        .map_err(|e| e.to_string())?
+        .with_timezone(&chrono::Utc);
+    service::get_daily_stats(state.db(), from, to)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// 获取整体统计信息（最长连续天数、总时间等）
+#[tauri::command]
+pub async fn pomodoro_get_overall_stats(
+    state: State<'_, AppState>,
+) -> Result<service::OverallStats, String> {
+    service::get_overall_stats(state.db())
+        .await
+        .map_err(|e| e.to_string())
+}

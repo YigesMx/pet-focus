@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react"
-import { Clock, Trash2, Edit2, Check, X } from "lucide-react"
+import { Clock, Trash2, Edit2, Check, X, TrendingUp, Flame } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -18,9 +18,16 @@ import {
   useUpdateSessionNote,
   useDeleteSessionCascade,
 } from "@/features/pomodoro/hooks"
+import { useCompleteStats } from "@/features/pomodoro/hooks/useStats"
 import { generateSessionTitle, listSessionRecords } from "@/features/pomodoro/api/session.api"
 import type { PomodoroRecord } from "@/features/pomodoro/api/session.api"
+import { ContributionWall } from "@/components/app/contribution-wall"
 import { toast } from "sonner"
+
+interface SessionItemProps {
+  sessionId: number
+  onDelete: (sessionId: number) => void
+}
 
 function formatDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600)
@@ -34,11 +41,6 @@ function formatDuration(seconds: number): string {
   } else {
     return `${secs}秒`
   }
-}
-
-interface SessionItemProps {
-  sessionId: number
-  onDelete: (sessionId: number) => void
 }
 
 function SessionItem({ sessionId, onDelete }: SessionItemProps) {
@@ -215,6 +217,7 @@ function SessionItem({ sessionId, onDelete }: SessionItemProps) {
 
 export function StatsPage() {
   const { data: sessions = [] } = useSessions(true) // 显示所有sessions，包括已归档的
+  const { daily: dailyStats, overall: overallStats, isLoading: statsLoading } = useCompleteStats()
   const deleteSessionMutation = useDeleteSessionCascade()
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -247,40 +250,127 @@ export function StatsPage() {
     setSessionToDelete(null)
   }
 
-  // 统计数据 (需要异步加载所有 session 的 records)
-  const stats = useMemo(() => {
-    // TODO: 这里需要优化，可以添加一个后端 API 直接返回统计数据
+  // 计算今日统计
+  const todayStats = useMemo(() => {
+    if (!dailyStats.length) return { seconds: 0, sessions: 0 }
+    const today = new Date().toISOString().split("T")[0]
+    const todayStat = dailyStats.find((s) => s.date === today)
     return {
-      totalSessions: sessions.length,
-      todaySessions: 0,
+      seconds: todayStat?.focusSeconds ?? 0,
+      sessions: todayStat?.sessionCount ?? 0,
     }
-  }, [sessions])
+  }, [dailyStats])
 
   return (
     <>
-      <div className="grid gap-4 md:grid-cols-2">
-        {/* 今日统计 */}
+      {/* 砖墙贡献图 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="size-5" />
+            专注热力图
+          </CardTitle>
+          <CardDescription>过去 365 天的专注活动记录</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ContributionWall data={dailyStats} isLoading={statsLoading} className="overflow-x-auto" />
+        </CardContent>
+      </Card>
+
+      {/* 统计卡片 */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {/* 今日专注时间 */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">今日会话</CardTitle>
+            <CardTitle className="text-sm font-medium">今日专注</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{stats.todaySessions}</div>
-            <p className="text-xs text-muted-foreground mt-1">个会话</p>
+            <div className="text-3xl font-bold">{formatDuration(todayStats.seconds)}</div>
+            <p className="text-xs text-muted-foreground mt-1">{todayStats.sessions} 个会话</p>
           </CardContent>
         </Card>
 
-        {/* 总体统计 */}
+        {/* 总专注时间 */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">总会话数</CardTitle>
+            <CardTitle className="text-sm font-medium">总专注时间</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{stats.totalSessions}</div>
-            <p className="text-xs text-muted-foreground mt-1">个会话</p>
+            <div className="text-3xl font-bold">
+              {overallStats
+                ? (() => {
+                    const hours = Math.floor(overallStats.totalFocusSeconds / 3600)
+                    const days = Math.floor(hours / 24)
+                    return days > 0 ? `${days}天` : formatDuration(overallStats.totalFocusSeconds)
+                  })()
+                : "-"}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {overallStats ? overallStats.totalRecords : 0} 条记录
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* 连续活动 */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Flame className="size-4" />
+              当前连胜
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{overallStats?.currentStreak ?? 0}</div>
+            <p className="text-xs text-muted-foreground mt-1">天</p>
+          </CardContent>
+        </Card>
+
+        {/* 最长连续 */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">最长连胜</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{overallStats?.longestStreak ?? 0}</div>
+            <p className="text-xs text-muted-foreground mt-1">天</p>
           </CardContent>
         </Card>
       </div>
+
+      {/* 详细信息 */}
+      {overallStats && (
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">总会话数</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{overallStats.totalSessions}</div>
+              <p className="text-xs text-muted-foreground mt-1">个专注会话</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">日均专注</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatDuration(Math.round(overallStats.avgSecondsPerDay))}</div>
+              <p className="text-xs text-muted-foreground mt-1">每天平均</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">活跃天数</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{dailyStats.length}</div>
+              <p className="text-xs text-muted-foreground mt-1">天有记录</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Sessions 列表 */}
       <Card>

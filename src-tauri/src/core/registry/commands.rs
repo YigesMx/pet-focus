@@ -48,6 +48,9 @@ pub fn get_handler() -> impl Fn(Invoke<tauri::Wry>) -> bool + Send + Sync + 'sta
         crate::features::pomodoro::api::commands::pomodoro_generate_session_title,
         crate::features::pomodoro::api::commands::pomodoro_save_adjusted_times,
         crate::features::pomodoro::api::commands::pomodoro_get_adjusted_times,
+        // Pomodoro Statistics Commands
+        crate::features::pomodoro::api::commands::pomodoro_get_daily_stats,
+        crate::features::pomodoro::api::commands::pomodoro_get_overall_stats,
         // WebServer Commands (Desktop only)
         #[cfg(not(any(target_os = "android", target_os = "ios")))]
         crate::infrastructure::webserver::api::commands::start_web_server,

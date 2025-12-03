@@ -345,3 +345,199 @@ pub async fn get_last_adjusted_times(
 
     Ok((focus, rest))
 }
+
+// ==================== Daily & Contribution Stats ====================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DailyStat {
+    /// 日期 (YYYY-MM-DD)
+    pub date: String,
+    /// 该日期的专注总秒数
+    pub focus_seconds: i64,
+    /// 该日期的会话数（去重后）
+    pub session_count: i64,
+    /// 该日期的专注记录数
+    pub record_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OverallStats {
+    /// 总专注秒数
+    pub total_focus_seconds: i64,
+    /// 总会话数
+    pub total_sessions: i64,
+    /// 总记录数
+    pub total_records: i64,
+    /// 平均每天的专注秒数
+    pub avg_seconds_per_day: f64,
+    /// 最长连续活动天数
+    pub longest_streak: i64,
+    /// 当前连续活动天数
+    pub current_streak: i64,
+}
+
+/// 获取指定日期范围内的每日统计数据
+/// 返回的列表包含该范围内所有有数据的日期
+pub async fn get_daily_stats(
+    db: &DatabaseConnection,
+    from: DateTime<Utc>,
+    to: DateTime<Utc>,
+) -> Result<Vec<DailyStat>> {
+    // 查询所有在时间范围内的专注记录
+    let records = record_entity::Entity::find()
+        .filter(record_entity::Column::Kind.eq("focus"))
+        .filter(record_entity::Column::Status.eq("completed"))
+        .filter(record_entity::Column::StartAt.gte(from))
+        .filter(record_entity::Column::StartAt.lte(to))
+        .all(db)
+        .await?;
+
+    // 按日期分组统计
+    use std::collections::HashMap;
+    let mut daily_map: HashMap<String, (i64, Vec<i32>, i64)> = HashMap::new();
+
+    for record in records {
+        let date = record.start_at.format("%Y-%m-%d").to_string();
+        let entry = daily_map.entry(date).or_insert((0, vec![], 0));
+        entry.0 += record.elapsed_seconds as i64; // 总秒数
+        entry.1.push(record.session_id); // 收集 session ID
+        entry.2 += 1; // 记录数
+    }
+
+    // 转换为有序的 DailyStat 列表
+    let mut stats: Vec<DailyStat> = daily_map
+        .into_iter()
+        .map(|(date, (seconds, session_ids, record_count))| {
+            // 去重计算会话数
+            let mut unique_sessions = session_ids;
+            unique_sessions.sort();
+            unique_sessions.dedup();
+            let session_count = unique_sessions.len() as i64;
+
+            DailyStat {
+                date,
+                focus_seconds: seconds,
+                session_count,
+                record_count,
+            }
+        })
+        .collect();
+
+    // 按日期排序
+    stats.sort_by(|a, b| a.date.cmp(&b.date));
+    Ok(stats)
+}
+
+/// 获取整体统计信息
+pub async fn get_overall_stats(db: &DatabaseConnection) -> Result<OverallStats> {
+    // 总专注秒数
+    let total_focus: i64 = record_entity::Entity::find()
+        .filter(record_entity::Column::Kind.eq("focus"))
+        .filter(record_entity::Column::Status.eq("completed"))
+        .select_only()
+        .column(record_entity::Column::ElapsedSeconds)
+        .into_tuple::<i32>()
+        .all(db)
+        .await?
+        .iter()
+        .map(|v| *v as i64)
+        .sum();
+
+    // 总记录数
+    let total_records: i64 = record_entity::Entity::find()
+        .filter(record_entity::Column::Kind.eq("focus"))
+        .filter(record_entity::Column::Status.eq("completed"))
+        .count(db)
+        .await? as i64;
+
+    // 总会话数（去重）
+    let total_sessions: i64 = record_entity::Entity::find()
+        .filter(record_entity::Column::Kind.eq("focus"))
+        .filter(record_entity::Column::Status.eq("completed"))
+        .select_only()
+        .column(record_entity::Column::SessionId)
+        .into_tuple::<i32>()
+        .all(db)
+        .await?
+        .into_iter()
+        .collect::<std::collections::HashSet<_>>()
+        .len() as i64;
+
+    // 计算天数和条纹
+    let all_records = record_entity::Entity::find()
+        .filter(record_entity::Column::Kind.eq("focus"))
+        .filter(record_entity::Column::Status.eq("completed"))
+        .order_by_asc(record_entity::Column::StartAt)
+        .all(db)
+        .await?;
+
+    // 构建日期集合
+    use std::collections::HashSet;
+    let mut date_set: HashSet<String> = HashSet::new();
+    for record in &all_records {
+        let date = record.start_at.format("%Y-%m-%d").to_string();
+        date_set.insert(date);
+    }
+
+    let total_days = date_set.len() as i64;
+    let avg_seconds_per_day = if total_days > 0 {
+        total_focus as f64 / total_days as f64
+    } else {
+        0.0
+    };
+
+    // 计算最长连续天数和当前连续天数
+    let (longest_streak, current_streak) = calculate_streaks(&date_set);
+
+    Ok(OverallStats {
+        total_focus_seconds: total_focus,
+        total_sessions,
+        total_records,
+        avg_seconds_per_day,
+        longest_streak,
+        current_streak,
+    })
+}
+
+/// 计算最长连续天数和当前连续天数
+fn calculate_streaks(dates: &std::collections::HashSet<String>) -> (i64, i64) {
+    if dates.is_empty() {
+        return (0, 0);
+    }
+
+    let mut sorted_dates: Vec<String> = dates.iter().cloned().collect();
+    sorted_dates.sort();
+
+    let mut longest = 1i64;
+    let mut current = 1i64;
+    let mut prev_date: Option<chrono::NaiveDate> = None;
+
+    for date_str in &sorted_dates {
+        if let Ok(date) = chrono::NaiveDate::parse_from_str(date_str, "%Y-%m-%d") {
+            if let Some(p) = prev_date {
+                let days_diff = (date - p).num_days();
+                if days_diff == 1 {
+                    current += 1;
+                    longest = longest.max(current);
+                } else if days_diff > 1 {
+                    current = 1;
+                }
+            }
+            prev_date = Some(date);
+        }
+    }
+
+    // 检查当前连续是否在最后一天
+    let today = Utc::now().date_naive();
+    let last_date_str = sorted_dates.last().unwrap();
+    if let Ok(last_date) = chrono::NaiveDate::parse_from_str(last_date_str, "%Y-%m-%d") {
+        let days_since = (today - last_date).num_days();
+        if days_since > 1 {
+            current = 0;
+        }
+    }
+
+    (longest, current)
+}
