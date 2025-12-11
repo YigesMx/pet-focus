@@ -24,6 +24,7 @@ export function TodosPage({ onStartFocus }: TodosPageProps) {
     toggleCompleted,
     updateDetails,
     updateParent,
+    reorder,
     deleteTodo,
     busyTodoIds,
     isCreating,
@@ -97,6 +98,9 @@ export function TodosPage({ onStartFocus }: TodosPageProps) {
             onOpenDetails={handleOpenDetails}
             onUpdateParent={(id, parentId) => {
               void updateParent(id, parentId)
+            }}
+            onReorder={(id, beforeId, afterId, newParentId) => {
+              void reorder(id, beforeId, afterId, newParentId)
             }}
             onAddSubtask={handleAddSubtask}
             onDelete={(id) => {

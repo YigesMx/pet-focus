@@ -155,3 +155,17 @@ pub async fn update_todo_parent(
         .await
         .map_err(|err| err.to_string())
 }
+
+/// 重新排序任务
+#[tauri::command]
+pub async fn reorder_todo(
+    state: State<'_, AppState>,
+    id: i32,
+    before_id: Option<i32>,
+    after_id: Option<i32>,
+    new_parent_id: Option<i32>,
+) -> Result<Todo, String> {
+    service::reorder_todo(state.db(), id, before_id, after_id, new_parent_id)
+        .await
+        .map_err(|err| err.to_string())
+}

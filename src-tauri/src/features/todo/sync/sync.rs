@@ -12,6 +12,7 @@ use tauri::{AppHandle, Manager, Wry};
 use tokio::sync::Mutex;
 
 use crate::features::todo::data::entity;
+use crate::features::todo::core::fractional_index;
 
 use super::{
     client::{CalDavClient, CalDavItem, RemoteTodo},
@@ -310,7 +311,9 @@ async fn synchronize_database(
 
     let mut created = 0usize;
     let mut updated = 0usize;
+    let mut new_todos_to_create: Vec<&RemoteTodo> = Vec::new();
 
+    // 第一遍：区分需要更新和需要创建的 todos
     for remote in &remote_todos {
         if let Some(existing) = by_href.remove(&remote.href) {
             by_uid.remove(&existing.uid);
@@ -323,9 +326,14 @@ async fn synchronize_database(
             update_local_from_remote(db, existing, remote, now, client).await?;
             updated += 1;
         } else {
-            create_local_from_remote(db, remote, now, client).await?;
-            created += 1;
+            new_todos_to_create.push(remote);
         }
+    }
+
+    // 第二遍：批量创建新 todos，按 parent_id 分组并均匀分配 order_index
+    if !new_todos_to_create.is_empty() {
+        create_local_todos_with_uniform_order(db, &new_todos_to_create, now, client).await?;
+        created = new_todos_to_create.len();
     }
 
     let mut pushed = 0usize;
@@ -427,6 +435,83 @@ async fn update_local_from_remote(
     Ok(())
 }
 
+/// 批量创建新 todos，按 parent_id 分组并在 0 到最小值之间均匀分配 order_index
+async fn create_local_todos_with_uniform_order(
+    db: &DatabaseConnection,
+    remotes: &[&RemoteTodo],
+    now: DateTime<Utc>,
+    client: &CalDavClient,
+) -> Result<()> {
+    use sea_orm::ActiveValue::NotSet;
+    use std::collections::HashMap;
+
+    // 第一步：创建所有 active models（暂不插入数据库）
+    let mut active_models = Vec::new();
+    for remote in remotes {
+        let mut active = entity::ActiveModel {
+            id: NotSet,
+            ..Default::default()
+        };
+        apply_remote_to_active(db, &mut active, &remote.item, remote, now, client).await;
+        active.created_at = Set(now);
+        active_models.push(active);
+    }
+
+    // 第二步：按 parent_id 分组
+    let mut groups: HashMap<Option<i32>, Vec<usize>> = HashMap::new();
+    for (idx, active) in active_models.iter().enumerate() {
+        let parent_id = match &active.parent_id {
+            Set(pid) => *pid,
+            _ => None,
+        };
+        groups.entry(parent_id).or_default().push(idx);
+    }
+
+    // 第三步：为每组分配 order_index
+    for (parent_id, indices) in groups {
+        // 获取该 parent 下的最小 order_index
+        let mut query = entity::Entity::find()
+            .filter(entity::Column::DeletedAt.is_null());
+        
+        if let Some(pid) = parent_id {
+            query = query.filter(entity::Column::ParentId.eq(pid));
+        } else {
+            query = query.filter(entity::Column::ParentId.is_null());
+        }
+        
+        let min_order_index = query
+            .all(db)
+            .await?
+            .iter()
+            .filter_map(|t| t.order_index)
+            .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+
+        // 在 0 到 min 之间均匀分配
+        let count = indices.len();
+        let min_val = min_order_index.unwrap_or(10.0); // 如果没有最小值，默认为 10
+        
+        // 计算均匀间隔：从 0 开始，到 min_val 结束，分成 count+1 份
+        let step = min_val / (count as f64 + 1.0);
+        
+        for (i, &idx) in indices.iter().enumerate() {
+            let order_index = (i + 1) as f64 * step;
+            active_models[idx].order_index = Set(Some(order_index));
+        }
+    }
+
+    // 第四步：插入所有 active models
+    for (remote, active) in remotes.iter().zip(active_models) {
+        active.insert(db).await.with_context(|| {
+            format!(
+                "failed to insert local todo from CalDAV resource {}",
+                remote.href
+            )
+        })?;
+    }
+
+    Ok(())
+}
+
 async fn create_local_from_remote(
     db: &DatabaseConnection,
     remote: &RemoteTodo,
@@ -443,6 +528,33 @@ async fn create_local_from_remote(
 
     apply_remote_to_active(db, &mut active, &remote.item, remote, now, client).await;
     active.created_at = Set(now);
+
+    // 生成 order_index，插入到最前面（最小值之前）
+    // 获取同一 parent 下的最小 order_index
+    let parent_id = match &active.parent_id {
+        Set(pid) => *pid,
+        _ => None,
+    };
+    
+    let mut query = entity::Entity::find()
+        .filter(entity::Column::DeletedAt.is_null());
+    
+    if let Some(pid) = parent_id {
+        query = query.filter(entity::Column::ParentId.eq(pid));
+    } else {
+        query = query.filter(entity::Column::ParentId.is_null());
+    }
+    
+    let min_order_index = query
+        .all(db)
+        .await?
+        .iter()
+        .filter_map(|t| t.order_index)
+        .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+
+    // 在最小值之前插入：min / 2
+    let order_index = fractional_index::generate_key_between(None, min_order_index);
+    active.order_index = Set(Some(order_index));
 
     active.insert(db).await.with_context(|| {
         format!(

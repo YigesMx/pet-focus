@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 pub struct Todo {
     pub id: i32,
     pub parent_id: Option<i32>,
+    pub order_index: Option<f64>,
     pub uid: String,
     pub title: String,
     pub description: Option<String>,
@@ -45,6 +46,7 @@ impl From<entity::Model> for Todo {
         Self {
             id: model.id,
             parent_id: model.parent_id,
+            order_index: model.order_index,
             uid: model.uid,
             title: model.title,
             description: model.description,
