@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { Pause, Play, RotateCcw, SkipForward, Square, Archive, Edit2, Check, X, Tag } from "lucide-react"
+import { Pause, Play, RotateCcw, SkipForward, Square, Archive, Edit2, Check, X, Tag, Link2 } from "lucide-react"
 import { usePomodoro } from "@/features/pomodoro/hooks/usePomodoro"
 import {
   useActiveSession,
@@ -16,12 +16,20 @@ import {
   useArchiveSession,
   useAdjustedTimes,
   useSaveAdjustedTimes,
+  useAddSessionTodoLinkMutation,
 } from "@/features/pomodoro/hooks"
 import { TimeAdjustmentDialog } from "./time-adjustment-dialog"
+import { SessionTodoLinkSelector } from "./session-todo-link-selector"
+import { SessionHistoryList } from "./session-history-list"
 import { TagSelector } from "@/features/tag/components"
 import { useSessionTagsQuery, useSetSessionTagsMutation } from "@/features/tag/api"
 
-export function PomodoroTimer() {
+interface PomodoroTimerProps {
+  initialTodoId?: number | null
+  onFocusStarted?: () => void
+}
+
+export function PomodoroTimer({ initialTodoId, onFocusStarted }: PomodoroTimerProps = {}) {
   const { status, isBusy, start, pause, resume, skip, stop, display } = usePomodoro()
   const { data: activeSession, isLoading: sessionLoading } = useActiveSession()
   const { data: sessionRecords } = useSessionRecords(activeSession?.id ?? 0)
@@ -31,17 +39,20 @@ export function PomodoroTimer() {
   const updateNoteMutation = useUpdateSessionNote()
   const archiveSessionMutation = useArchiveSession()
   const saveAdjustedTimesMutation = useSaveAdjustedTimes()
+  const addTodoLinkMutation = useAddSessionTodoLinkMutation()
 
   const [isEditingNote, setIsEditingNote] = useState(false)
   const [noteValue, setNoteValue] = useState("")
   const [pendingNote, setPendingNote] = useState<string | null>(null) // 虚拟 session 的备注
   const [pendingTagIds, setPendingTagIds] = useState<number[]>([]) // 虚拟 session 的标签
+  const [pendingTodoIds, setPendingTodoIds] = useState<number[]>([]) // 虚拟 session 的关联待办
   const [showAdjustDialog, setShowAdjustDialog] = useState(false)
   const [adjustType, setAdjustType] = useState<"focus" | "rest">("focus")
   const [isAutoTransition, setIsAutoTransition] = useState(false)
   const [countdown, setCountdown] = useState(5)
   
   const previousModeRef = useRef<string | null>(null)
+  const prevHasRealSessionRef = useRef(false)
   const countdownTimerRef = useRef<number | null>(null)
 
   // 判断是否有真实 session（有 records 的 session）
@@ -63,6 +74,41 @@ export function PomodoroTimer() {
     return pendingTagIds
   }, [hasRealSession, sessionTags, pendingTagIds])
 
+  // 关联待办变更处理
+  const handleTodoIdsChange = useCallback(
+    (todoIds: number[]) => {
+      // 暂存模式下更新 pending 列表
+      setPendingTodoIds(todoIds)
+    },
+    [],
+  )
+
+  // 当 hasRealSession 变为 true 时，同步 pending 数据到真实 session
+  useEffect(() => {
+    const syncPendingData = async () => {
+      if (hasRealSession && !prevHasRealSessionRef.current && activeSession) {
+        // 从 false 变为 true，同步 pending 数据
+
+        // 同步 pending 标签
+        if (pendingTagIds.length > 0) {
+          setSessionTagsMutation.mutate({ sessionId: activeSession.id, tagIds: pendingTagIds })
+          setPendingTagIds([])
+        }
+
+        // 同步 pending 待办关联
+        if (pendingTodoIds.length > 0) {
+          for (const todoId of pendingTodoIds) {
+            addTodoLinkMutation.mutate({ sessionId: activeSession.id, todoId })
+          }
+          setPendingTodoIds([])
+        }
+      }
+    }
+
+    void syncPendingData()
+    prevHasRealSessionRef.current = !!hasRealSession
+  }, [hasRealSession, activeSession, pendingTagIds, pendingTodoIds, setSessionTagsMutation, addTodoLinkMutation])
+
   // 标签变更处理
   const handleTagsChange = useCallback(
     (tagIds: number[]) => {
@@ -76,6 +122,37 @@ export function PomodoroTimer() {
     },
     [hasRealSession, activeSession, setSessionTagsMutation],
   )
+
+  // 处理从 TodoPage 传入的 initialTodoId
+  const initialTodoProcessedRef = useRef(false)
+  useEffect(() => {
+    const handleInitialTodo = async () => {
+      if (!initialTodoId || initialTodoProcessedRef.current) {
+        return
+      }
+
+      console.log('[PomodoroTimer] 处理 initialTodoId:', initialTodoId)
+      initialTodoProcessedRef.current = true
+
+      // 如果已有 real session，先归档它
+      if (hasRealSession && activeSession) {
+        console.log('[PomodoroTimer] 已有 real session，先归档')
+        await archiveSessionMutation.mutateAsync(activeSession.id)
+      }
+
+      // 将 todo 添加到 pending 列表
+      setPendingTodoIds([initialTodoId])
+
+      // 启动专注计时
+      console.log('[PomodoroTimer] 启动专注计时')
+      await start()
+
+      // 通知父组件已启动
+      onFocusStarted?.()
+    }
+
+    void handleInitialTodo()
+  }, [initialTodoId, hasRealSession, activeSession, archiveSessionMutation, start, onFocusStarted])
 
   const isRunning = status?.running ?? false
   const isPaused = status?.paused ?? false
@@ -303,6 +380,25 @@ export function PomodoroTimer() {
         </CardHeader>
         <Separator />
         <CardContent className="pt-4 space-y-4">
+          {/* 关联待办区域 - 始终显示 */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2 text-sm font-medium">
+              <Link2 className="size-4" />
+              关联待办
+            </Label>
+            {hasRealSession && activeSession ? (
+              // 真实模式：直接操作数据库
+              <SessionTodoLinkSelector sessionId={activeSession.id} />
+            ) : (
+              // 暂存模式：使用 pending 状态
+              <SessionTodoLinkSelector
+                sessionId={0}
+                pendingTodoIds={pendingTodoIds}
+                onPendingChange={handleTodoIdsChange}
+              />
+            )}
+          </div>
+
           {/* 标签选择区域 */}
           <div className="space-y-2">
             <Label className="flex items-center gap-2 text-sm font-medium">
@@ -451,6 +547,9 @@ export function PomodoroTimer() {
           </CardContent>
         </Card>
       )}
+
+      {/* 历史会话列表 */}
+      <SessionHistoryList excludeSessionId={activeSession?.id} asCard />
 
       {/* Time Adjustment Dialog */}
       <TimeAdjustmentDialog

@@ -42,6 +42,8 @@ export function TodoList({
   onAddSubtask,
   onStartFocus,
   onUpdateDueDate,
+  featureOptions,
+  rootTodoId,
 }: TodoListProps) {
   const [expandedIds, setExpandedIds] = useState<Set<number>>(() => {
     // 尝试从 localStorage 读取保存的展开状态
@@ -113,12 +115,27 @@ export function TodoList({
 
   // 扁平化 todos，处理展开/折叠状态
   const flattenedItems = useMemo(() => {
-    const flattenedTree = flattenTree(todos)
+    // 如果指定了 rootTodoId，只显示该 todo 的子任务
+    let todosToFlatten = todos
+    let startParentId: number | null = null
+    
+    if (rootTodoId !== undefined) {
+      // 获取所有属于 rootTodoId 的递归子任务
+      const getDescendants = (parentId: number): Todo[] => {
+        const children = todos.filter(t => t.parent_id === parentId)
+        return children.flatMap(child => [child, ...getDescendants(child.id)])
+      }
+      todosToFlatten = getDescendants(rootTodoId)
+      // 使用 rootTodoId 作为起始父节点
+      startParentId = rootTodoId
+    }
+
+    const flattenedTree = flattenTree(todosToFlatten, startParentId)
 
     // 收集折叠的项
     const collapsedItems = flattenedTree.reduce<number[]>(
       (acc, item) => {
-        const hasChildren = todos.some((t) => t.parent_id === item.id)
+        const hasChildren = todosToFlatten.some((t) => t.parent_id === item.id)
         if (hasChildren && !expandedIds.has(item.id)) {
           return [...acc, item.id]
         }
@@ -149,7 +166,7 @@ export function TodoList({
     }
     
     return filteredItems
-  }, [todos, expandedIds, activeId, pendingDrop])
+  }, [todos, expandedIds, activeId, pendingDrop, rootTodoId])
 
   // 计算投影
   const projected =
@@ -239,7 +256,11 @@ export function TodoList({
       return
     }
 
-    const newParentId = projected.parentId
+    // 如果有 rootTodoId，且 projected.parentId 为 null，则使用 rootTodoId 作为父级
+    // 因为在子任务列表中，顶层元素的父级应该是 rootTodoId 而不是 null
+    const newParentId = (rootTodoId !== undefined && projected.parentId === null)
+      ? rootTodoId
+      : projected.parentId
     
     // 检查父级是否改变
     const parentChanged = (draggedTodo.parent_id ?? null) !== newParentId
@@ -363,7 +384,7 @@ export function TodoList({
     >
       <SortableContext items={sortedIds} strategy={verticalListSortingStrategy}>
         <ul className="flex flex-col gap-1">
-          {flattenedItems.map((item) => {
+          {flattenedItems.map((item, index) => {
             const hasChildren = (childrenMap.get(item.id) || []).length > 0
             const isExpanded = expandedIds.has(item.id)
             // 计算 depth：
@@ -382,6 +403,17 @@ export function TodoList({
               }
             }
 
+            // 计算每个层级是否是最后一个子项
+            // 对于每个层级，如果下一个项的 depth 小于等于该层级，说明该层级在当前项之后没有后续项了
+            const isLastInLevel: boolean[] = []
+            for (let level = 0; level < depth; level++) {
+              // 查找下一个项
+              const nextItem = flattenedItems[index + 1]
+              // 如果没有下一项，或下一项的层级 <= 当前层级，说明当前层级是最后的
+              const isLast = !nextItem || nextItem.depth <= level
+              isLastInLevel.push(isLast)
+            }
+
             return (
               <SortableTodoItem
                 key={item.id}
@@ -391,6 +423,7 @@ export function TodoList({
                 hasChildren={hasChildren}
                 isExpanded={isExpanded}
                 busyTodoIds={busyTodoIds}
+                isLastInLevel={isLastInLevel}
                 toggleExpanded={toggleExpanded}
                 onToggleCompleted={onToggleCompleted}
                 onUpdateTitle={onUpdateTitle}
@@ -401,6 +434,7 @@ export function TodoList({
                 onUpdateDueDate={onUpdateDueDate}
                 openActionId={openActionId}
                 setOpenActionId={setOpenActionId}
+                featureOptions={featureOptions}
               />
             )
           })}
@@ -408,16 +442,17 @@ export function TodoList({
       </SortableContext>
       {createPortal(
         <DragOverlay dropAnimation={null}>
-          {activeId && activeItem ? (
+          {activeId && activeItem && projected ? (
             <SortableTodoItem
               id={activeId}
               todo={activeItem}
-              depth={activeItem.depth}
+              depth={projected.depth}
               hasChildren={(childrenMap.get(activeId) || []).length > 0}
               isExpanded={false}
               busyTodoIds={busyTodoIds}
               clone={true}
               childCount={getChildCount(todos, activeId) + 1}
+              isLastInLevel={Array.from({ length: projected.depth }, () => false)}
               toggleExpanded={() => {}}
               onToggleCompleted={() => {}}
               onUpdateTitle={() => {}}
@@ -426,6 +461,7 @@ export function TodoList({
               onAddSubtask={() => {}}
               openActionId={null}
               setOpenActionId={() => {}}
+              featureOptions={featureOptions}
             />
           ) : null}
         </DragOverlay>,

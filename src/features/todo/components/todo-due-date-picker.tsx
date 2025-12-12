@@ -126,7 +126,7 @@ export function TodoDueDatePicker({
       )}
       <Button
         variant="ghost"
-        size="icon"
+        size="icon-sm"
         disabled={disabled}
         onClick={() => setOpen(true)}
         className={cn(

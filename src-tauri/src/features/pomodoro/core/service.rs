@@ -13,6 +13,7 @@ use sea_orm::{
     ActiveModelTrait,
     ActiveValue::{NotSet, Set},
     ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
+    sea_query::Expr,
 };
 
 const KEY_FOCUS: &str = "pomodoro.focus_minutes";
@@ -345,3 +346,104 @@ pub async fn get_last_adjusted_times(
 
     Ok((focus, rest))
 }
+
+// ==================== Session-Todo Links ====================
+
+use crate::features::pomodoro::data::entities::session_todo_links as link_entity;
+
+/// Session-Todo 关联信息
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionTodoLink {
+    pub id: i32,
+    pub session_id: i32,
+    pub todo_id: i32,
+    pub sort_order: i32,
+    pub created_at: DateTime<Utc>,
+}
+
+impl From<link_entity::Model> for SessionTodoLink {
+    fn from(model: link_entity::Model) -> Self {
+        Self {
+            id: model.id,
+            session_id: model.session_id,
+            todo_id: model.todo_id,
+            sort_order: model.sort_order,
+            created_at: model.created_at,
+        }
+    }
+}
+
+/// 获取 Session 关联的所有 Todo IDs
+pub async fn list_session_todo_links(
+    db: &DatabaseConnection,
+    session_id: i32,
+) -> Result<Vec<SessionTodoLink>> {
+    let links = link_entity::Entity::find()
+        .filter(link_entity::Column::SessionId.eq(session_id))
+        .order_by_asc(link_entity::Column::SortOrder)
+        .all(db)
+        .await?;
+
+    Ok(links.into_iter().map(SessionTodoLink::from).collect())
+}
+
+/// 添加 Session-Todo 关联
+pub async fn add_session_todo_link(
+    db: &DatabaseConnection,
+    session_id: i32,
+    todo_id: i32,
+) -> Result<SessionTodoLink> {
+    // 获取当前最大 sort_order
+    let existing_links = link_entity::Entity::find()
+        .filter(link_entity::Column::SessionId.eq(session_id))
+        .all(db)
+        .await?;
+    
+    let max_order = existing_links.iter().map(|l| l.sort_order).max().unwrap_or(0);
+    let new_order = max_order + 1;
+    let now = Utc::now();
+
+    let active = link_entity::ActiveModel {
+        id: NotSet,
+        session_id: Set(session_id),
+        todo_id: Set(todo_id),
+        sort_order: Set(new_order),
+        created_at: Set(now),
+    };
+
+    let model = active.insert(db).await?;
+    Ok(SessionTodoLink::from(model))
+}
+
+/// 移除 Session-Todo 关联
+pub async fn remove_session_todo_link(
+    db: &DatabaseConnection,
+    session_id: i32,
+    todo_id: i32,
+) -> Result<()> {
+    link_entity::Entity::delete_many()
+        .filter(link_entity::Column::SessionId.eq(session_id))
+        .filter(link_entity::Column::TodoId.eq(todo_id))
+        .exec(db)
+        .await?;
+    Ok(())
+}
+
+/// 重排序 Session-Todo 关联
+pub async fn reorder_session_todo_links(
+    db: &DatabaseConnection,
+    session_id: i32,
+    todo_ids: Vec<i32>,
+) -> Result<()> {
+    for (index, todo_id) in todo_ids.iter().enumerate() {
+        link_entity::Entity::update_many()
+            .col_expr(link_entity::Column::SortOrder, Expr::value(index as i32))
+            .filter(link_entity::Column::SessionId.eq(session_id))
+            .filter(link_entity::Column::TodoId.eq(*todo_id))
+            .exec(db)
+            .await?;
+    }
+    Ok(())
+}
+

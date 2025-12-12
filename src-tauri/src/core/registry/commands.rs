@@ -58,6 +58,11 @@ pub fn get_handler() -> impl Fn(Invoke<tauri::Wry>) -> bool + Send + Sync + 'sta
         crate::features::pomodoro::api::commands::pomodoro_generate_session_title,
         crate::features::pomodoro::api::commands::pomodoro_save_adjusted_times,
         crate::features::pomodoro::api::commands::pomodoro_get_adjusted_times,
+        // Session-Todo Link Commands
+        crate::features::pomodoro::api::commands::session_todo_link_list,
+        crate::features::pomodoro::api::commands::session_todo_link_add,
+        crate::features::pomodoro::api::commands::session_todo_link_remove,
+        crate::features::pomodoro::api::commands::session_todo_link_reorder,
         // WebServer Commands (Desktop only)
         #[cfg(not(any(target_os = "android", target_os = "ios")))]
         crate::infrastructure::webserver::api::commands::start_web_server,

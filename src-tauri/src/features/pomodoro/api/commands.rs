@@ -314,3 +314,53 @@ pub async fn pomodoro_get_adjusted_times(
         rest_minutes: rest,
     })
 }
+
+// ==================== Session Todo Link Commands ====================
+
+/// 获取 Session 关联的所有 Todo IDs
+#[tauri::command]
+pub async fn session_todo_link_list(
+    state: State<'_, AppState>,
+    session_id: i32,
+) -> Result<Vec<service::SessionTodoLink>, String> {
+    service::list_session_todo_links(state.db(), session_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// 添加 Session-Todo 关联
+#[tauri::command]
+pub async fn session_todo_link_add(
+    state: State<'_, AppState>,
+    session_id: i32,
+    todo_id: i32,
+) -> Result<service::SessionTodoLink, String> {
+    service::add_session_todo_link(state.db(), session_id, todo_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// 移除 Session-Todo 关联
+#[tauri::command]
+pub async fn session_todo_link_remove(
+    state: State<'_, AppState>,
+    session_id: i32,
+    todo_id: i32,
+) -> Result<(), String> {
+    service::remove_session_todo_link(state.db(), session_id, todo_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// 重排序 Session-Todo 关联
+#[tauri::command]
+pub async fn session_todo_link_reorder(
+    state: State<'_, AppState>,
+    session_id: i32,
+    todo_ids: Vec<i32>,
+) -> Result<(), String> {
+    service::reorder_session_todo_links(state.db(), session_id, todo_ids)
+        .await
+        .map_err(|e| e.to_string())
+}
+

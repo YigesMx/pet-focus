@@ -5,7 +5,7 @@ import {
   useState,
   useCallback,
 } from "react"
-import { Play, Trash, X, ChevronDown, ChevronRight, CalendarClock, Ellipsis, Plus } from "lucide-react"
+import { Play, Trash, X, CalendarClock, Ellipsis, Plus, Edit, Circle, CircleChevronRight, CircleChevronDown, CircleDot } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { ButtonGroup } from "@/components/ui/button-group"
@@ -35,6 +35,10 @@ type TodoItemProps = {
   onDelete: (id: number) => void
   onStartFocus?: (todoId: number) => void
   onUpdateDueDate?: (id: number, dueDate: string | null, reminderOffsetMinutes?: number | null) => void
+  // 功能开关
+  disablePlay?: boolean
+  disableDelete?: boolean
+  disableAddSubtask?: boolean
 }
 
 export function TodoItem({
@@ -52,6 +56,9 @@ export function TodoItem({
   onDelete,
   onStartFocus,
   onUpdateDueDate,
+  disablePlay = false,
+  disableDelete = false,
+  disableAddSubtask = false,
 }: TodoItemProps) {
   const [draftTitle, setDraftTitle] = useState(todo.title)
 
@@ -102,31 +109,22 @@ export function TodoItem({
 
   return (
     <ButtonGroup className="flex justify-between w-full">
-      <ButtonGroup className="flex-none">
-        {hasChildren && (
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={(e) => {
-              e.stopPropagation()
-              onToggleExpand()
-            }}
-          >
-            {isExpanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-          </Button>
-        )}
-        {(!hasChildren || isExpanded) && (
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={(e) => {
-              e.stopPropagation()
-              onAddSubtask()
-            }}
-          >
-            <Plus className="size-4" />
-          </Button>
-        )}
+      <ButtonGroup className="flex-none items-center">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          disabled={!hasChildren}
+          onClick={(e) => {
+            e.stopPropagation()
+            if (hasChildren) onToggleExpand()
+          }}
+        >
+          {hasChildren ? (
+            isExpanded ? <CircleChevronDown className="size-4" /> : <CircleChevronRight className="size-4" />
+          ) : (
+            <CircleDot className="size-4" />
+          )}
+        </Button>
       </ButtonGroup>
       <ButtonGroup className="grow">
         <InputGroup>
@@ -161,6 +159,7 @@ export function TodoItem({
                 </div>
               ) : (
                 <InputGroupButton
+                  size="icon-sm"
                   onClick={(e) => {
                     e.stopPropagation()
                     onOpenDetails(todo)
@@ -179,29 +178,45 @@ export function TodoItem({
       </ButtonGroup>
       {moreActionsOpen && (
         <>
+          {!disableDelete && (
+            <ButtonGroup>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onDelete(todo.id)
+                }}
+              >
+                <Trash className="size-4" />
+              </Button>
+            </ButtonGroup>
+          )}
           <ButtonGroup>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={(e) => {
-                e.stopPropagation()
-                onDelete(todo.id)
-              }}
-            >
-              <Trash className="size-4" />
-            </Button>
-          </ButtonGroup>
-          <ButtonGroup>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={(e) => {
-                e.stopPropagation()
-                if (onStartFocus) onStartFocus(todo.id)
-              }}
-            >
-              <Play className="size-4" />
-            </Button>
+            {!disablePlay && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (onStartFocus) onStartFocus(todo.id)
+                }}
+              >
+                <Play className="size-4" />
+              </Button>
+            )}
+            {!disableAddSubtask && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onAddSubtask()
+                }}
+              >
+                <Plus className="size-4" />
+              </Button>
+            )}
             <Button
               variant="outline"
               size="icon"
@@ -210,7 +225,7 @@ export function TodoItem({
                 onOpenDetails(todo)
               }}
             >
-              <Ellipsis className="size-4" />
+              <Edit className="size-4" />
             </Button>
           </ButtonGroup>
         </>
