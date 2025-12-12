@@ -10,7 +10,8 @@ use core::Feature;
 #[cfg(target_os = "windows")]
 use features::pet::PetFeature;
 use features::{
-    pomodoro::PomodoroFeature, settings::SettingsFeature, todo::TodoFeature, window::WindowFeature,
+    pomodoro::PomodoroFeature, settings::SettingsFeature, tag::TagFeature, todo::TodoFeature,
+    window::WindowFeature,
 };
 use infrastructure::database::{init_db, DatabaseRegistry};
 use std::sync::Arc;
@@ -23,6 +24,7 @@ fn init_features() -> Vec<Arc<dyn Feature>> {
         TodoFeature::new(),
         SettingsFeature::new(),
         PomodoroFeature::new(),
+        TagFeature::new(),
         Arc::new(WindowFeature::new()),
     ];
 

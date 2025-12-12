@@ -90,9 +90,9 @@ export function TodoDueDatePicker({
     setOpen(false)
   }
 
-  const handleClear = (event: MouseEvent) => {
-    event.stopPropagation()
+  const handleClear = () => {
     onChange(null)
+    setOpen(false)
   }
 
   const formatDateTime = (dateValue: string | null) => {
@@ -121,7 +121,7 @@ export function TodoDueDatePicker({
               : "text-muted-foreground",
           )}
         >
-          到期: {formatDateTime(value)}
+          {formatDateTime(value)}
         </span>
       )}
       <Button
@@ -138,18 +138,6 @@ export function TodoDueDatePicker({
       >
         <CalendarIcon className="size-4" />
       </Button>
-      {value && (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-8 text-muted-foreground hover:text-destructive"
-          onClick={handleClear}
-          disabled={disabled}
-          aria-label="清除到期日期"
-        >
-          <X className="size-4" />
-        </Button>
-      )}
 
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent className="max-h-[calc(100vh-2rem)] max-w-[calc(100%-2rem)] overflow-hidden p-0 sm:max-h-[calc(100vh-4rem)] sm:max-w-sm md:max-w-[calc(100%-4rem)]">
@@ -206,6 +194,11 @@ export function TodoDueDatePicker({
               <Button variant="outline" className="flex-1" onClick={() => setOpen(false)}>
                 取消
               </Button>
+              {value && (
+                <Button variant="destructive" className="flex-1" onClick={handleClear}>
+                  清除
+                </Button>
+              )}
               <Button className="flex-1" onClick={handleConfirm} disabled={!tempDate}>
                 确定
               </Button>

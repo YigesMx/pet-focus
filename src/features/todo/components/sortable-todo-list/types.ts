@@ -19,6 +19,7 @@ export type TodoListProps = {
   onReorder: (id: number, beforeId: number | null, afterId: number | null, newParentId: number | null) => void
   onAddSubtask: (parentId: number) => void
   onStartFocus?: (todoId: number) => void
+  onUpdateDueDate?: (id: number, dueDate: string | null, reminderOffsetMinutes?: number | null) => void
 }
 
 export type SortableTodoItemProps = {
@@ -37,6 +38,7 @@ export type SortableTodoItemProps = {
   onDelete: (id: number) => void
   onAddSubtask: (parentId: number) => void
   onStartFocus?: (todoId: number) => void
+  onUpdateDueDate?: (id: number, dueDate: string | null, reminderOffsetMinutes?: number | null) => void
   openActionId: number | null
   setOpenActionId: (id: number | null) => void
 }

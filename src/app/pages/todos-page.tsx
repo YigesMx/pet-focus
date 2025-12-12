@@ -75,6 +75,16 @@ export function TodosPage({ onStartFocus }: TodosPageProps) {
     [createTodo, updateParent],
   )
 
+  const handleUpdateDueDate = useCallback(
+    async (id: number, dueDate: string | null, reminderOffsetMinutes?: number | null) => {
+      await updateDetails(id, {
+        due_date: dueDate,
+        reminder_offset_minutes: reminderOffsetMinutes ?? null,
+      })
+    },
+    [updateDetails],
+  )
+
   return (
     <>
       <Card>
@@ -107,6 +117,9 @@ export function TodosPage({ onStartFocus }: TodosPageProps) {
               void deleteTodo(id)
             }}
             onStartFocus={onStartFocus}
+            onUpdateDueDate={(id, dueDate, reminderOffsetMinutes) => {
+              void handleUpdateDueDate(id, dueDate, reminderOffsetMinutes)
+            }}
           />
         </CardContent>
       </Card>

@@ -41,8 +41,21 @@ export function TodoList({
   onReorder,
   onAddSubtask,
   onStartFocus,
+  onUpdateDueDate,
 }: TodoListProps) {
-  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set())
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(() => {
+    // 尝试从 localStorage 读取保存的展开状态
+    const saved = localStorage.getItem('todo-expanded-ids')
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved) as number[]
+        return new Set(parsed)
+      } catch {
+        return new Set()
+      }
+    }
+    return new Set()
+  })
   const [activeId, setActiveId] = useState<number | null>(null)
   const [overId, setOverId] = useState<number | null>(null)
   const [offsetLeft, setOffsetLeft] = useState(0)
@@ -64,6 +77,27 @@ export function TodoList({
       },
     })
   )
+
+  // 保存展开状态到 localStorage
+  useEffect(() => {
+    localStorage.setItem('todo-expanded-ids', JSON.stringify(Array.from(expandedIds)))
+  }, [expandedIds])
+
+  // 当 todos 加载完成且 expandedIds 为空时，默认全部展开
+  useEffect(() => {
+    if (todos.length > 0 && expandedIds.size === 0) {
+      // 获取所有有子项的待办 ID
+      const parentIds = new Set<number>()
+      todos.forEach(todo => {
+        if (todos.some(t => t.parent_id === todo.id)) {
+          parentIds.add(todo.id)
+        }
+      })
+      if (parentIds.size > 0) {
+        setExpandedIds(parentIds)
+      }
+    }
+  }, [todos, expandedIds.size])
 
   // 当数据更新后，清除 pendingDrop
   useEffect(() => {
@@ -364,6 +398,7 @@ export function TodoList({
                 onDelete={onDelete}
                 onAddSubtask={onAddSubtask}
                 onStartFocus={onStartFocus}
+                onUpdateDueDate={onUpdateDueDate}
                 openActionId={openActionId}
                 setOpenActionId={setOpenActionId}
               />
