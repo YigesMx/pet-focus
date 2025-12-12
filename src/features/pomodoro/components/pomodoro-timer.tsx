@@ -1,11 +1,12 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
-import { Pause, Play, RotateCcw, SkipForward, Square, Archive, Edit2, Check, X } from "lucide-react"
+import { Label } from "@/components/ui/label"
+import { Pause, Play, RotateCcw, SkipForward, Square, Archive, Edit2, Check, X, Tag } from "lucide-react"
 import { usePomodoro } from "@/features/pomodoro/hooks/usePomodoro"
 import {
   useActiveSession,
@@ -17,6 +18,8 @@ import {
   useSaveAdjustedTimes,
 } from "@/features/pomodoro/hooks"
 import { TimeAdjustmentDialog } from "./time-adjustment-dialog"
+import { TagSelector } from "@/features/tag/components"
+import { useSessionTagsQuery, useSetSessionTagsMutation } from "@/features/tag/api"
 
 export function PomodoroTimer() {
   const { status, isBusy, start, pause, resume, skip, stop, display } = usePomodoro()
@@ -32,6 +35,7 @@ export function PomodoroTimer() {
   const [isEditingNote, setIsEditingNote] = useState(false)
   const [noteValue, setNoteValue] = useState("")
   const [pendingNote, setPendingNote] = useState<string | null>(null) // 虚拟 session 的备注
+  const [pendingTagIds, setPendingTagIds] = useState<number[]>([]) // 虚拟 session 的标签
   const [showAdjustDialog, setShowAdjustDialog] = useState(false)
   const [adjustType, setAdjustType] = useState<"focus" | "rest">("focus")
   const [isAutoTransition, setIsAutoTransition] = useState(false)
@@ -46,6 +50,32 @@ export function PomodoroTimer() {
   const displayNote = hasRealSession ? activeSession?.note : pendingNote
   // 显示的标题
   const displayTitle = hasRealSession ? (sessionTitle || "当前会话") : "新会话"
+
+  // 标签相关
+  const { data: sessionTags = [] } = useSessionTagsQuery(activeSession?.id ?? 0)
+  const setSessionTagsMutation = useSetSessionTagsMutation()
+
+  // 当前显示的标签 IDs
+  const displayTagIds = useMemo(() => {
+    if (hasRealSession) {
+      return sessionTags.map((t) => t.id)
+    }
+    return pendingTagIds
+  }, [hasRealSession, sessionTags, pendingTagIds])
+
+  // 标签变更处理
+  const handleTagsChange = useCallback(
+    (tagIds: number[]) => {
+      if (hasRealSession && activeSession) {
+        // 有真实 session，直接更新
+        setSessionTagsMutation.mutate({ sessionId: activeSession.id, tagIds })
+      } else {
+        // 没有真实 session，暂存
+        setPendingTagIds(tagIds)
+      }
+    },
+    [hasRealSession, activeSession, setSessionTagsMutation],
+  )
 
   const isRunning = status?.running ?? false
   const isPaused = status?.paused ?? false
@@ -271,51 +301,60 @@ export function PomodoroTimer() {
             )}
           </div>
         </CardHeader>
-        {(displayNote || isEditingNote) && (
-          <>
-            <Separator />
-            <CardContent className="pt-4">
-              {isEditingNote ? (
-                <div className="space-y-2">
-                  <Textarea
-                    value={noteValue}
-                    onChange={(e) => setNoteValue(e.target.value)}
-                    placeholder="添加备注..."
-                    rows={3}
-                  />
-                  <div className="flex gap-2">
-                    <Button size="sm" onClick={handleSaveNote} disabled={updateNoteMutation.isPending}>
-                      <Check className="size-4 mr-1" />
-                      保存
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={handleCancelEditNote}>
-                      <X className="size-4 mr-1" />
-                      取消
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-sm text-muted-foreground flex-1">{displayNote}</p>
-                  <Button size="sm" variant="ghost" onClick={handleEditNote}>
-                    <Edit2 className="size-4" />
+        <Separator />
+        <CardContent className="pt-4 space-y-4">
+          {/* 标签选择区域 */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2 text-sm font-medium">
+              <Tag className="size-4" />
+              标签
+            </Label>
+            <TagSelector
+              selectedTagIds={displayTagIds}
+              onTagsChange={handleTagsChange}
+            />
+          </div>
+
+          {/* 备注区域 */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2 text-sm font-medium">
+              <Edit2 className="size-4" />
+              备注
+            </Label>
+            {isEditingNote ? (
+              <div className="space-y-2">
+                <Textarea
+                  value={noteValue}
+                  onChange={(e) => setNoteValue(e.target.value)}
+                  placeholder="添加备注..."
+                  rows={3}
+                />
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={handleSaveNote} disabled={updateNoteMutation.isPending}>
+                    <Check className="size-4 mr-1" />
+                    保存
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={handleCancelEditNote}>
+                    <X className="size-4 mr-1" />
+                    取消
                   </Button>
                 </div>
-              )}
-            </CardContent>
-          </>
-        )}
-        {!displayNote && !isEditingNote && (
-          <>
-            <Separator />
-            <CardContent className="pt-4">
+              </div>
+            ) : displayNote ? (
+              <div className="flex items-start justify-between gap-2 p-3 rounded-md bg-muted/50">
+                <p className="text-sm text-muted-foreground flex-1">{displayNote}</p>
+                <Button size="sm" variant="ghost" onClick={handleEditNote} className="h-6 w-6 p-0">
+                  <Edit2 className="size-3" />
+                </Button>
+              </div>
+            ) : (
               <Button size="sm" variant="outline" onClick={handleEditNote} className="w-full">
                 <Edit2 className="size-4 mr-1" />
                 添加备注
               </Button>
-            </CardContent>
-          </>
-        )}
+            )}
+          </div>
+        </CardContent>
       </Card>
 
       {/* Timer Card */}

@@ -24,6 +24,15 @@ pub fn get_handler() -> impl Fn(Invoke<tauri::Wry>) -> bool + Send + Sync + 'sta
         // Settings Feature Commands
         crate::features::settings::api::commands::get_theme_preference,
         crate::features::settings::api::commands::set_theme_preference,
+        // Tag Feature Commands
+        crate::features::tag::api::commands::tag_get_all,
+        crate::features::tag::api::commands::tag_create,
+        crate::features::tag::api::commands::tag_update,
+        crate::features::tag::api::commands::tag_delete,
+        crate::features::tag::api::commands::tag_get_for_task,
+        crate::features::tag::api::commands::tag_set_for_task,
+        crate::features::tag::api::commands::tag_get_for_session,
+        crate::features::tag::api::commands::tag_set_for_session,
         // Pomodoro Feature Commands
         crate::features::pomodoro::api::commands::pomodoro_start,
         crate::features::pomodoro::api::commands::pomodoro_pause,

@@ -8,10 +8,12 @@ pub use core::AppState;
 
 use core::Feature;
 use features::{
-    pomodoro::PomodoroFeature, settings::SettingsFeature, todo::TodoFeature, window::WindowFeature,
+    pomodoro::PomodoroFeature, settings::SettingsFeature, tag::TagFeature, todo::TodoFeature,
+    window::WindowFeature,
 };
 #[cfg(target_os = "windows")]
 use features::pet::PetFeature;
+
 use infrastructure::database::{init_db, DatabaseRegistry};
 use std::sync::Arc;
 use tauri::Manager;
@@ -23,6 +25,7 @@ fn init_features() -> Vec<Arc<dyn Feature>> {
         TodoFeature::new(),
         SettingsFeature::new(),
         PomodoroFeature::new(),
+        TagFeature::new(),
         Arc::new(WindowFeature::new()),
     ];
 

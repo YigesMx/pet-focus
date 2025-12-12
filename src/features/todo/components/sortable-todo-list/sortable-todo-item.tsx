@@ -24,6 +24,7 @@ export function SortableTodoItem({
   onDelete,
   onAddSubtask,
   onStartFocus,
+  onUpdateDueDate,
   openActionId,
   setOpenActionId,
 }: SortableTodoItemProps) {
@@ -73,6 +74,7 @@ export function SortableTodoItem({
           onOpenDetails={onOpenDetails}
           onDelete={onDelete}
           onStartFocus={onStartFocus}
+          onUpdateDueDate={onUpdateDueDate}
         />
       </div>
     </li>

@@ -41,6 +41,7 @@ export function TodoList({
   onReorder,
   onAddSubtask,
   onStartFocus,
+  onUpdateDueDate,
 }: TodoListProps) {
   const [expandedIds, setExpandedIds] = useState<Set<number>>(() => {
     // 尝试从 localStorage 读取保存的展开状态
@@ -397,6 +398,7 @@ export function TodoList({
                 onDelete={onDelete}
                 onAddSubtask={onAddSubtask}
                 onStartFocus={onStartFocus}
+                onUpdateDueDate={onUpdateDueDate}
                 openActionId={openActionId}
                 setOpenActionId={setOpenActionId}
               />

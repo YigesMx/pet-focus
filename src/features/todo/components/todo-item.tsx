@@ -3,6 +3,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  useCallback,
 } from "react"
 import { Play, Trash, X, ChevronDown, ChevronRight, CalendarClock, Ellipsis, Plus } from "lucide-react"
 
@@ -15,6 +16,7 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group"
 import { Checkbox } from "@/components/ui/checkbox"
+import { TodoDueDatePicker } from "@/features/todo/components/todo-due-date-picker"
 
 import type { Todo } from "@/features/todo/types/todo.types"
 
@@ -32,6 +34,7 @@ type TodoItemProps = {
   onOpenDetails: (todo: Todo) => void
   onDelete: (id: number) => void
   onStartFocus?: (todoId: number) => void
+  onUpdateDueDate?: (id: number, dueDate: string | null, reminderOffsetMinutes?: number | null) => void
 }
 
 export function TodoItem({
@@ -48,6 +51,7 @@ export function TodoItem({
   onOpenDetails,
   onDelete,
   onStartFocus,
+  onUpdateDueDate,
 }: TodoItemProps) {
   const [draftTitle, setDraftTitle] = useState(todo.title)
 
@@ -69,6 +73,18 @@ export function TodoItem({
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     setDraftTitle(event.target.value)
   }
+
+  const handleDueDateChange = useCallback((value: string | null) => {
+    if (onUpdateDueDate) {
+      onUpdateDueDate(todo.id, value, todo.reminder_offset_minutes)
+    }
+  }, [todo.id, todo.reminder_offset_minutes, onUpdateDueDate])
+
+  const handleReminderOffsetChange = useCallback((minutes: number) => {
+    if (onUpdateDueDate) {
+      onUpdateDueDate(todo.id, todo.due_date, minutes)
+    }
+  }, [todo.id, todo.due_date, onUpdateDueDate])
 
   const dueLabel = useMemo(() => {
     if (!todo.due_date) return null
@@ -131,18 +147,32 @@ export function TodoItem({
           />
           {!moreActionsOpen && (
             <InputGroupAddon align="inline-end">
-              <InputGroupButton
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onOpenDetails(todo)
-                }}
-              >
-                {hasDueTime ? (
-                  <span className="text-xs">{dueLabel}</span>
-                ) : (
-                  <CalendarClock className="size-4" />
-                )}
-              </InputGroupButton>
+              {onUpdateDueDate ? (
+                <div onClick={(e) => e.stopPropagation()}>
+                  <TodoDueDatePicker
+                    value={todo.due_date}
+                    onChange={handleDueDateChange}
+                    reminderOffsetMinutes={todo.reminder_offset_minutes ?? 15}
+                    onReminderOffsetChange={handleReminderOffsetChange}
+                    isCompleted={todo.completed}
+                    isNotified={todo.notified}
+                    disabled={disabled}
+                  />
+                </div>
+              ) : (
+                <InputGroupButton
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onOpenDetails(todo)
+                  }}
+                >
+                  {hasDueTime ? (
+                    <span className="text-xs">{dueLabel}</span>
+                  ) : (
+                    <CalendarClock className="size-4" />
+                  )}
+                </InputGroupButton>
+              )}
             </InputGroupAddon>
           )}
         </InputGroup>

@@ -1,9 +1,10 @@
-import { useState, useMemo } from "react"
-import { Clock, Trash2, Edit2, Check, X } from "lucide-react"
+import { useState, useMemo, useCallback } from "react"
+import { Clock, Trash2, Edit2, Check, X, Tag } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import {
   Dialog,
@@ -22,6 +23,8 @@ import { generateSessionTitle, listSessionRecords } from "@/features/pomodoro/ap
 import type { PomodoroRecord } from "@/features/pomodoro/api/session.api"
 import { ContributionWall, StatsOverview } from "@/features/stats"
 import { toast } from "sonner"
+import { TagSelector, TagList } from "@/features/tag/components"
+import { useSessionTagsQuery, useSetSessionTagsMutation } from "@/features/tag/api"
 
 function formatDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600)
@@ -50,8 +53,21 @@ function SessionItem({ sessionId, onDelete }: SessionItemProps) {
   
   const updateNoteMutation = useUpdateSessionNote()
   const { data: sessions = [] } = useSessions(false)
+  const { data: sessionTags = [] } = useSessionTagsQuery(sessionId)
+  const setSessionTagsMutation = useSetSessionTagsMutation()
   
   const session = sessions.find(s => s.id === sessionId)
+
+  // 标签 IDs
+  const selectedTagIds = useMemo(() => sessionTags.map((t) => t.id), [sessionTags])
+
+  // 标签变更处理
+  const handleTagsChange = useCallback(
+    (tagIds: number[]) => {
+      setSessionTagsMutation.mutate({ sessionId, tagIds })
+    },
+    [sessionId, setSessionTagsMutation],
+  )
 
   // 加载标题和记录
   useMemo(() => {
@@ -120,51 +136,62 @@ function SessionItem({ sessionId, onDelete }: SessionItemProps) {
         </div>
       </AccordionTrigger>
       <AccordionContent className="pb-4">
+        {/* 标签区域 */}
+        <div className="mb-4 space-y-2">
+          <Label className="flex items-center gap-2 text-sm font-medium">
+            <Tag className="size-4" />
+            标签
+          </Label>
+          <TagSelector
+            selectedTagIds={selectedTagIds}
+            onTagsChange={handleTagsChange}
+          />
+        </div>
+
         {/* 备注区域 */}
-        {(session?.note || isEditingNote) && (
-          <div className="mb-4 p-3 rounded-md bg-muted/50">
-            {isEditingNote ? (
-              <div className="space-y-2">
-                <Textarea
-                  value={noteValue}
-                  onChange={(e) => setNoteValue(e.target.value)}
-                  placeholder="添加备注..."
-                  rows={3}
-                  className="resize-none"
-                />
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    onClick={handleSaveNote}
-                    disabled={updateNoteMutation.isPending}
-                  >
-                    <Check className="size-4 mr-1" />
-                    保存
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={handleCancelEditNote}>
-                    <X className="size-4 mr-1" />
-                    取消
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-start justify-between gap-2">
-                <p className="text-sm text-muted-foreground flex-1">{session?.note}</p>
-                <Button size="sm" variant="ghost" onClick={handleEditNote} className="h-6 w-6 p-0">
-                  <Edit2 className="size-3" />
+        <div className="mb-4 space-y-2">
+          <Label className="flex items-center gap-2 text-sm font-medium">
+            <Edit2 className="size-4" />
+            备注
+          </Label>
+          {isEditingNote ? (
+            <div className="space-y-2">
+              <Textarea
+                value={noteValue}
+                onChange={(e) => setNoteValue(e.target.value)}
+                placeholder="添加备注..."
+                rows={3}
+                className="resize-none"
+              />
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={handleSaveNote}
+                  disabled={updateNoteMutation.isPending}
+                >
+                  <Check className="size-4 mr-1" />
+                  保存
+                </Button>
+                <Button size="sm" variant="outline" onClick={handleCancelEditNote}>
+                  <X className="size-4 mr-1" />
+                  取消
                 </Button>
               </div>
-            )}
-          </div>
-        )}
-        {!session?.note && !isEditingNote && (
-          <div className="mb-4">
+            </div>
+          ) : session?.note ? (
+            <div className="flex items-start justify-between gap-2 p-3 rounded-md bg-muted/50">
+              <p className="text-sm text-muted-foreground flex-1">{session?.note}</p>
+              <Button size="sm" variant="ghost" onClick={handleEditNote} className="h-6 w-6 p-0">
+                <Edit2 className="size-3" />
+              </Button>
+            </div>
+          ) : (
             <Button size="sm" variant="outline" onClick={handleEditNote} className="w-full">
               <Edit2 className="size-4 mr-1" />
               添加备注
             </Button>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Records 列表 */}
         <div className="space-y-2">
