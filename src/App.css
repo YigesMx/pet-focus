@@ -185,7 +185,11 @@
   }
   body {
     @apply bg-background text-foreground overflow-hidden overscroll-none;
-    letter-spacing: var(--tracking-normal);
+    font-family: var(--font-sans);
+    letter-spacing: var(--letter-spacing);
+  }
+  code, pre, kbd, samp {
+    font-family: var(--font-mono);
   }
   #root {
     min-height: 100vh;

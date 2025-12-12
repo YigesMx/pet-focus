@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/accordion"
 import { CalDavSettings } from "@/features/caldav/components/caldav-settings"
 import { ThemePreferenceSelector } from "@/features/settings/components/theme-preference"
+import { ColorThemeSelector } from "@/features/settings/components/color-theme-selector"
 import { ExternalApiToggle } from "@/features/webserver/components/external-api-toggle"
 import { useWebServerControl } from "@/features/webserver/hooks/useWebServerControl"
 import { PetControl } from "@/features/pet/components/pet-control"
@@ -28,8 +29,9 @@ export function SettingsPage() {
               <span className="text-base font-semibold">外观</span>
             </AccordionTrigger>
             <AccordionContent>
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <p className="text-sm text-muted-foreground">自定义应用程序的外观和主题</p>
+                <ColorThemeSelector />
                 <ThemePreferenceSelector />
               </div>
             </AccordionContent>
