@@ -62,3 +62,17 @@ export async function updateTodoParent(
 ): Promise<Todo> {
   return await invoke<Todo>("update_todo_parent", { id, parentId })
 }
+
+export async function reorderTodo(
+  id: number,
+  beforeId: number | null,
+  afterId: number | null,
+  newParentId: number | null,
+): Promise<Todo> {
+  return await invoke<Todo>("reorder_todo", {
+    id,
+    beforeId,
+    afterId,
+    newParentId,
+  })
+}

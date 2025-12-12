@@ -13,6 +13,7 @@ pub fn get_handler() -> impl Fn(Invoke<tauri::Wry>) -> bool + Send + Sync + 'sta
         crate::features::todo::api::commands::update_todo_details,
         crate::features::todo::api::commands::get_subtasks,
         crate::features::todo::api::commands::update_todo_parent,
+        crate::features::todo::api::commands::reorder_todo,
         // CalDAV Commands
         crate::features::todo::sync::caldav_commands::get_caldav_status,
         crate::features::todo::sync::caldav_commands::save_caldav_config,

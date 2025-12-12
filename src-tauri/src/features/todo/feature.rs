@@ -9,7 +9,7 @@ use crate::core::{AppState, Feature};
 use crate::infrastructure::database::DatabaseRegistry;
 
 use super::core::scheduler::DueNotificationScheduler;
-use super::data::{add_subtask_migration, migration};
+use super::data::{add_order_index_migration, add_subtask_migration, migration};
 
 /// Todo Feature
 ///
@@ -57,6 +57,12 @@ impl Feature for TodoFeature {
             let migration = add_subtask_migration::AddSubtaskMigration;
             Box::pin(async move { migration.up(manager).await })
         });
+
+        // 注册排序字段迁移
+        registry.register_migration("add_order_index_migration", |manager| {
+            let migration = add_order_index_migration::AddOrderIndexMigration;
+            Box::pin(async move { migration.up(manager).await })
+        });
     }
 
     fn command_names(&self) -> Vec<&'static str> {
@@ -68,6 +74,7 @@ impl Feature for TodoFeature {
             "update_todo_details",
             "get_subtasks",
             "update_todo_parent",
+            "reorder_todo",
             "get_caldav_status",
             "save_caldav_config",
             "clear_caldav_config",

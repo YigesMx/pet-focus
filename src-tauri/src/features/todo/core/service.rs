@@ -9,7 +9,7 @@ use sea_orm::{
 };
 use uuid::Uuid;
 
-use super::models::Todo;
+use super::{fractional_index, models::Todo};
 use crate::features::todo::data::entity;
 
 const DEFAULT_STATUS: &str = "NEEDS-ACTION";
@@ -37,9 +37,22 @@ pub async fn create_todo(db: &DatabaseConnection, title: Option<String>) -> Resu
     // 获取本地时区（默认为 Asia/Shanghai，即 UTC+8）
     let local_timezone = get_local_timezone();
 
+    // 生成新任务的 order_index（添加到末尾）
+    let last_order_index = entity::Entity::find()
+        .filter(entity::Column::ParentId.is_null())
+        .filter(entity::Column::DeletedAt.is_null())
+        .all(db)
+        .await?
+        .iter()
+        .filter_map(|t| t.order_index)
+        .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+
+    let order_index = fractional_index::generate_key_between(last_order_index, None);
+
     let model = entity::ActiveModel {
         id: NotSet,
         parent_id: Set(None),
+        order_index: Set(Some(order_index)),
         uid: Set(Uuid::new_v4().to_string()),
         title: Set(normalized_title.into_owned()),
         description: Set(None),
@@ -311,6 +324,176 @@ pub async fn update_parent(
         .with_context(|| format!("failed to update parent for todo {}", id))?;
 
     Ok(updated.into())
+}
+
+/// 更新任务的排序位置
+pub async fn reorder_todo(
+    db: &DatabaseConnection,
+    id: i32,
+    before_id: Option<i32>,
+    after_id: Option<i32>,
+    new_parent_id: Option<i32>,
+) -> Result<Todo> {
+    eprintln!(
+        "[Reorder] todo {}: before_id={:?}, after_id={:?}, new_parent_id={:?}",
+        id,
+        before_id,
+        after_id,
+        new_parent_id
+    );
+    let now = Utc::now();
+
+    // 验证循环引用（如果改变了父任务）
+    if let Some(new_parent_id) = new_parent_id {
+        if new_parent_id == id {
+            return Err(anyhow!("A task cannot be its own parent"));
+        }
+
+        let mut current_parent_id = Some(new_parent_id);
+        while let Some(pid) = current_parent_id {
+            if pid == id {
+                return Err(anyhow!("Cannot create circular parent-child relationship"));
+            }
+            let parent = entity::Entity::find_by_id(pid).one(db).await?;
+            current_parent_id = parent.and_then(|p| p.parent_id);
+        }
+    }
+
+    // 获取当前任务
+    let model = entity::Entity::find_by_id(id)
+        .one(db)
+        .await
+        .with_context(|| format!("failed to find todo {}", id))?
+        .ok_or_else(|| anyhow!("todo {} not found", id))?;
+
+    // 获取前后任务的 order_index
+    let before_order = if let Some(bid) = before_id {
+        entity::Entity::find_by_id(bid)
+            .one(db)
+            .await?
+            .and_then(|t| t.order_index)
+    } else {
+        None
+    };
+
+    let after_order = if let Some(aid) = after_id {
+        entity::Entity::find_by_id(aid)
+            .one(db)
+            .await?
+            .and_then(|t| t.order_index)
+    } else {
+        None
+    };
+
+    // 生成新的 order_index
+    let new_order_index = fractional_index::generate_key_between(before_order, after_order);
+
+    eprintln!(
+        "[Reorder] Generated order_index={} between {:?} and {:?}",
+        new_order_index, before_order, after_order
+    );
+
+    // 检查是否需要重新平衡
+    if fractional_index::should_rebalance(new_order_index) {
+        eprintln!(
+            "[Reorder] Rebalancing order indices for parent_id={:?}, triggered by todo {}",
+            new_parent_id, id
+        );
+        rebalance_order_indices(db, new_parent_id).await?;
+        // 重新计算 order_index
+        let before_order = if let Some(bid) = before_id {
+            entity::Entity::find_by_id(bid)
+                .one(db)
+                .await?
+                .and_then(|t| t.order_index)
+        } else {
+            None
+        };
+        let after_order = if let Some(aid) = after_id {
+            entity::Entity::find_by_id(aid)
+                .one(db)
+                .await?
+                .and_then(|t| t.order_index)
+        } else {
+            None
+        };
+        let new_order_index = fractional_index::generate_key_between(before_order, after_order);
+
+        let mut active: entity::ActiveModel = model.into();
+        active.order_index = Set(Some(new_order_index));
+        active.parent_id = Set(new_parent_id);
+        active.dirty = Set(true);
+        active.updated_at = Set(now);
+        active.last_modified_at = Set(now);
+
+        let updated = active
+            .update(db)
+            .await
+            .with_context(|| format!("failed to reorder todo {}", id))?;
+
+        return Ok(updated.into());
+    }
+
+    // 正常更新
+    let mut active: entity::ActiveModel = model.into();
+    active.order_index = Set(Some(new_order_index));
+    active.parent_id = Set(new_parent_id);
+    active.dirty = Set(true);
+    active.updated_at = Set(now);
+    active.last_modified_at = Set(now);
+
+    let updated = active
+        .update(db)
+        .await
+        .with_context(|| format!("failed to reorder todo {}", id))?;
+
+    Ok(updated.into())
+}
+
+/// 重新平衡指定父任务下所有子任务的 order_index
+async fn rebalance_order_indices(
+    db: &DatabaseConnection,
+    parent_id: Option<i32>,
+) -> Result<()> {
+    use sea_orm::QueryOrder;
+
+    let mut todos = if let Some(pid) = parent_id {
+        entity::Entity::find()
+            .filter(entity::Column::ParentId.eq(pid))
+            .filter(entity::Column::DeletedAt.is_null())
+            .order_by_asc(entity::Column::OrderIndex)
+            .all(db)
+            .await?
+    } else {
+        entity::Entity::find()
+            .filter(entity::Column::ParentId.is_null())
+            .filter(entity::Column::DeletedAt.is_null())
+            .order_by_asc(entity::Column::OrderIndex)
+            .all(db)
+            .await?
+    };
+
+    let count = todos.len();
+    let new_indices = fractional_index::generate_balanced_keys(count);
+    let now = Utc::now();
+
+    eprintln!(
+        "[Rebalance] Rebalancing {} todos for parent_id={:?}",
+        count,
+        parent_id
+    );
+
+    for (todo, new_index) in todos.iter_mut().zip(new_indices.iter()) {
+        let mut active: entity::ActiveModel = todo.clone().into();
+        active.order_index = Set(Some(new_index.clone()));
+        active.dirty = Set(true);
+        active.updated_at = Set(now);
+        active.last_modified_at = Set(now);
+        active.update(db).await?;
+    }
+
+    eprintln!("[Rebalance] Completed for parent_id={:?}", parent_id);
+    Ok(())
 }
 
 /// 获取下一个需要提醒的 Todo（用于调度器）

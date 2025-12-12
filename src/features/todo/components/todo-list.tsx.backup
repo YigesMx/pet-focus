@@ -1,0 +1,499 @@
+import { useState, useMemo, type CSSProperties } from "react"
+import { createPortal } from "react-dom"
+import { ListTodo, Loader2 } from "lucide-react"
+import {
+  DndContext,
+  DragOverlay,
+  useSensor,
+  useSensors,
+  PointerSensor,
+  closestCenter,
+  type DragStartEvent,
+  type DragEndEvent,
+  type DragMoveEvent,
+} from "@dnd-kit/core"
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
+
+import type { Todo } from "@/features/todo/types/todo.types"
+
+import { TodoItem } from "./todo-item"
+
+// 扁平化的 Todo 项，包含层级信息
+type FlattenedTodo = Todo & {
+  depth: number
+  parentId: number | null
+}
+
+type TodoListProps = {
+  todos: Todo[]
+  isLoading?: boolean
+  busyTodoIds?: Set<number>
+  onToggleCompleted: (id: number, completed: boolean) => void
+  onUpdateTitle: (id: number, title: string) => void
+  onOpenDetails: (todo: Todo) => void
+  onDelete: (id: number) => void
+  onUpdateParent: (id: number, parentId: number | null) => void
+  onReorder: (id: number, beforeId: number | null, afterId: number | null, newParentId: number | null) => void
+  onAddSubtask: (parentId: number) => void
+  onStartFocus?: (todoId: number) => void
+}
+
+type SortableTodoItemProps = {
+  todo: FlattenedTodo
+  busyTodoIds: Set<number>
+  expandedIds: Set<number>
+  hasChildren: boolean
+  toggleExpanded: (id: number) => void
+  onToggleCompleted: (id: number, completed: boolean) => void
+  onUpdateTitle: (id: number, title: string) => void
+  onOpenDetails: (todo: Todo) => void
+  onDelete: (id: number) => void
+  onAddSubtask: (parentId: number) => void
+  onStartFocus?: (todoId: number) => void
+  openActionId: number | null
+  setOpenActionId: (id: number | null) => void
+  clone?: boolean
+}
+
+function SortableTodoItem({
+  todo,
+  busyTodoIds,
+  expandedIds,
+  hasChildren,
+  toggleExpanded,
+  onToggleCompleted,
+  onUpdateTitle,
+  onOpenDetails,
+  onDelete,
+  onAddSubtask,
+  onStartFocus,
+  openActionId,
+  setOpenActionId,
+  clone,
+}: SortableTodoItemProps) {
+  const {
+    attributes,
+    listeners,
+    setDraggableNodeRef,
+    setDroppableNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: todo.id,
+    disabled: busyTodoIds.has(todo.id) || clone,
+  })
+
+  const style: CSSProperties = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+    marginLeft: `${todo.depth * 32}px`, // 32px per depth level
+  }
+
+  const isExpanded = expandedIds.has(todo.id)
+
+  return (
+    <div 
+      ref={setDroppableNodeRef} 
+      style={style}
+      className={isDragging ? "opacity-50" : ""}
+    >
+      <div 
+        ref={setDraggableNodeRef}
+        className={`flex items-start gap-1 rounded-lg px-1 py-0.5 ${clone ? "cursor-grabbing" : ""}`}
+        {...attributes} 
+        {...listeners}
+      >
+        <div className="flex-1">
+          <TodoItem
+            todo={todo}
+            hasChildren={hasChildren}
+            isExpanded={isExpanded}
+            onToggleExpand={() => !clone && toggleExpanded(todo.id)}
+            onAddSubtask={() => !clone && onAddSubtask(todo.id)}
+            moreActionsOpen={openActionId === todo.id}
+            setMoreActionsOpen={(open) => !clone && setOpenActionId(open ? todo.id : null)}
+            disabled={busyTodoIds.has(todo.id) || clone}
+            onToggleCompleted={onToggleCompleted}
+            onUpdateTitle={onUpdateTitle}
+            onOpenDetails={onOpenDetails}
+            onDelete={onDelete}
+            onStartFocus={onStartFocus}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// 按 order_index 排序 todos 的辅助函数
+function sortTodosByOrderIndex(todos: Todo[]): Todo[] {
+  return [...todos].sort((a, b) => {
+    // 没有 order_index 的排到最后
+    const aIdx = a.order_index ?? Number.MAX_VALUE
+    const bIdx = b.order_index ?? Number.MAX_VALUE
+    return aIdx - bIdx
+  })
+}
+
+// 将树形结构扁平化，保留层级和父子关系信息
+function flattenTodoTree(
+  todos: Todo[],
+  expandedIds: Set<number>,
+  excludeIds: number[] = []
+): FlattenedTodo[] {
+  const excludeSet = new Set(excludeIds)
+  const result: FlattenedTodo[] = []
+  
+  // 构建父子关系映射
+  const childrenMap = new Map<number | null, Todo[]>()
+  todos.forEach((todo) => {
+    const parentId = todo.parent_id ?? null
+    const siblings = childrenMap.get(parentId) || []
+    siblings.push(todo)
+    childrenMap.set(parentId, siblings)
+  })
+  
+  // 对每组兄弟节点排序
+  childrenMap.forEach((children, parentId) => {
+    childrenMap.set(parentId, sortTodosByOrderIndex(children))
+  })
+  
+  // 递归遍历树
+  function traverse(parentId: number | null, depth: number) {
+    const children = childrenMap.get(parentId) || []
+    
+    for (const todo of children) {
+      if (excludeSet.has(todo.id)) {
+        continue
+      }
+      
+      result.push({
+        ...todo,
+        depth,
+        parentId,
+      })
+      
+      // 如果展开且有子节点，递归遍历
+      const hasChildren = (childrenMap.get(todo.id) || []).length > 0
+      if (hasChildren && expandedIds.has(todo.id)) {
+        traverse(todo.id, depth + 1)
+      }
+    }
+  }
+  
+  traverse(null, 0)
+  return result
+}
+
+// 计算拖动时的投影（新位置）
+function getProjection(
+  flattenedTodos: FlattenedTodo[],
+  activeId: number,
+  overId: number,
+  offsetLeft: number,
+  indentationWidth: number = 32
+): { depth: number; parentId: number | null; maxDepth: number; minDepth: number } | null {
+  const overIndex = flattenedTodos.findIndex((t) => t.id === overId)
+  const activeIndex = flattenedTodos.findIndex((t) => t.id === activeId)
+  
+  if (overIndex === -1 || activeIndex === -1) {
+    return null
+  }
+  
+  const overItem = flattenedTodos[overIndex]
+  
+  // 根据水平偏移计算新的深度
+  const projectedDepth = Math.max(0, Math.round(offsetLeft / indentationWidth))
+  
+  // 计算允许的最大和最小深度
+  let maxDepth = overItem.depth + 1
+  let minDepth = 0
+  
+  // 如果拖到上方，可以和 over 平级或成为其子级
+  if (activeIndex < overIndex) {
+    const previousItem = flattenedTodos[overIndex - 1]
+    if (previousItem) {
+      minDepth = 0
+      maxDepth = previousItem.depth + 1
+    }
+  }
+  
+  const depth = Math.min(Math.max(projectedDepth, minDepth), maxDepth)
+  
+  // 根据深度确定父节点
+  let parentId: number | null = null
+  
+  if (depth === 0) {
+    parentId = null
+  } else if (depth === overItem.depth) {
+    parentId = overItem.parentId
+  } else if (depth > overItem.depth) {
+    parentId = overId
+  } else {
+    // 向上查找对应深度的父节点
+    for (let i = overIndex - 1; i >= 0; i--) {
+      if (flattenedTodos[i].depth === depth - 1) {
+        parentId = flattenedTodos[i].id
+        break
+      }
+    }
+  }
+  
+  return { depth, parentId, maxDepth, minDepth }
+}
+
+export function TodoList({
+  todos,
+  isLoading = false,
+  busyTodoIds = new Set<number>(),
+  onToggleCompleted,
+  onUpdateTitle,
+  onOpenDetails,
+  onDelete,
+  onUpdateParent: _onUpdateParent,
+  onReorder,
+  onAddSubtask,
+  onStartFocus,
+}: TodoListProps) {
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set())
+  const [activeId, setActiveId] = useState<number | null>(null)
+  const [overId, setOverId] = useState<number | null>(null)
+  const [offsetLeft, setOffsetLeft] = useState(0)
+  const [openActionId, setOpenActionId] = useState<number | null>(null)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  )
+  
+  // 构建子节点映射
+  const childrenMap = useMemo(() => {
+    const map = new Map<number, Todo[]>()
+    todos.forEach((todo) => {
+      if (todo.parent_id !== null && todo.parent_id !== undefined) {
+        const siblings = map.get(todo.parent_id) || []
+        siblings.push(todo)
+        map.set(todo.parent_id, siblings)
+      }
+    })
+    return map
+  }, [todos])
+  
+  // 扁平化展示列表（排除正在拖动的项）
+  const flattenedTodos = useMemo(() => {
+    return flattenTodoTree(
+      todos,
+      expandedIds,
+      activeId !== null ? [activeId] : []
+    )
+  }, [todos, expandedIds, activeId])
+  
+  // 计算投影（拖动时的目标位置）
+  const projected = useMemo(() => {
+    if (!activeId || !overId) return null
+    return getProjection(flattenedTodos, activeId, overId, offsetLeft)
+  }, [activeId, overId, offsetLeft, flattenedTodos])
+  
+  const sortedIds = useMemo(
+    () => flattenedTodos.map((t) => t.id),
+    [flattenedTodos]
+  )
+  
+  const activeItem = useMemo((): FlattenedTodo | null => {
+    if (!activeId) return null
+    
+    const found = flattenedTodos.find((t) => t.id === activeId)
+    if (found) return found
+    
+    // 如果在扁平化列表中找不到（被过滤了），从原始列表构造
+    const original = todos.find((t) => t.id === activeId)
+    if (!original) return null
+    
+    return {
+      ...original,
+      depth: 0,
+      parentId: original.parent_id ?? null,
+    }
+  }, [activeId, flattenedTodos, todos])
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
+        <Loader2 className="size-5 animate-spin" aria-hidden="true" />
+        <span>正在加载待办...</span>
+      </div>
+    )
+  }
+
+  if (todos.length === 0) {
+    return (
+      <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-12 text-center text-muted-foreground">
+        <ListTodo className="size-8" aria-hidden="true" />
+        <div className="text-base font-medium">暂无待办</div>
+        <p className="max-w-sm text-sm">点击顶部的“新建待办”按钮开始记录你的任务。</p>
+      </div>
+    )
+  }
+
+  const toggleExpanded = (todoId: number) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(todoId)) {
+        next.delete(todoId)
+      } else {
+        next.add(todoId)
+      }
+      return next
+    })
+  }
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event
+    setActiveId(Number(active.id))
+    setOverId(Number(active.id))
+    document.body.style.setProperty('cursor', 'grabbing')
+  }
+
+  const handleDragMove = (event: DragMoveEvent) => {
+    setOffsetLeft(event.delta.x)
+  }
+
+  const handleDragOver = (event: DragMoveEvent) => {
+    setOverId(event.over?.id ? Number(event.over.id) : null)
+  }
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+
+    // 重置状态
+    setActiveId(null)
+    setOverId(null)
+    setOffsetLeft(0)
+    document.body.style.setProperty('cursor', '')
+
+    if (!over || !projected) {
+      return
+    }
+
+    const draggedTodoId = Number(active.id)
+    const overTodoId = Number(over.id)
+
+    // 如果拖到相同位置，不做处理
+    if (draggedTodoId === overTodoId) {
+      return
+    }
+
+    const draggedTodo = todos.find((t) => t.id === draggedTodoId)
+    if (!draggedTodo) {
+      return
+    }
+
+    // 检查是否会创建循环引用（拖到自己的子孙任务上）
+    function isDescendant(parentId: number | null, targetId: number): boolean {
+      if (!parentId) return false
+      if (parentId === targetId) return true
+      const parent = todos.find((t) => t.id === parentId)
+      if (!parent) return false
+      return isDescendant(parent.parent_id ?? null, targetId)
+    }
+
+    if (isDescendant(projected.parentId, draggedTodoId)) {
+      return // 阻止循环引用
+    }
+
+    const newParentId = projected.parentId
+
+    // 获取目标位置的兄弟列表
+    const siblings = sortTodosByOrderIndex(
+      todos.filter((t) => (t.parent_id ?? null) === newParentId)
+    )
+
+    const overIndex = siblings.findIndex((t) => t.id === overTodoId)
+    if (overIndex === -1) {
+      return
+    }
+
+    // 计算 beforeId 和 afterId
+    const beforeId = overIndex > 0 ? siblings[overIndex - 1].id : null
+    const afterId = overTodoId
+
+    void onReorder(draggedTodoId, beforeId, afterId, newParentId)
+  }
+
+  const handleDragCancel = () => {
+    setActiveId(null)
+    setOverId(null)
+    setOffsetLeft(0)
+    document.body.style.setProperty('cursor', '')
+  }
+
+  return (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragMove={handleDragMove}
+      onDragOver={handleDragOver}
+      onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
+    >
+      <SortableContext items={sortedIds} strategy={verticalListSortingStrategy}>
+        <div className="flex flex-col gap-1">
+          {flattenedTodos.map((todo) => (
+            <SortableTodoItem
+              key={todo.id}
+              todo={todo}
+              busyTodoIds={busyTodoIds}
+              expandedIds={expandedIds}
+              hasChildren={(childrenMap.get(todo.id) || []).length > 0}
+              toggleExpanded={toggleExpanded}
+              onToggleCompleted={onToggleCompleted}
+              onUpdateTitle={onUpdateTitle}
+              onOpenDetails={onOpenDetails}
+              onDelete={onDelete}
+              onAddSubtask={onAddSubtask}
+              onStartFocus={onStartFocus}
+              openActionId={openActionId}
+              setOpenActionId={setOpenActionId}
+            />
+          ))}
+        </div>
+      </SortableContext>
+      {createPortal(
+        <DragOverlay dropAnimation={null}>
+          {activeItem ? (
+            <SortableTodoItem
+              todo={{
+                ...activeItem,
+                depth: projected?.depth ?? activeItem.depth,
+                parentId: projected?.parentId ?? activeItem.parentId,
+              }}
+              busyTodoIds={busyTodoIds}
+              expandedIds={expandedIds}
+              hasChildren={(childrenMap.get(activeItem.id) || []).length > 0}
+              toggleExpanded={() => {}}
+              onToggleCompleted={() => {}}
+              onUpdateTitle={() => {}}
+              onOpenDetails={() => {}}
+              onDelete={() => {}}
+              onAddSubtask={() => {}}
+              openActionId={null}
+              setOpenActionId={() => {}}
+              clone={true}
+            />
+          ) : null}
+        </DragOverlay>,
+        document.body
+      )}
+    </DndContext>
+  )
+}
