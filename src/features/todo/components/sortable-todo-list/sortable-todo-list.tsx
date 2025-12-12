@@ -363,7 +363,7 @@ export function TodoList({
     >
       <SortableContext items={sortedIds} strategy={verticalListSortingStrategy}>
         <ul className="flex flex-col gap-1">
-          {flattenedItems.map((item) => {
+          {flattenedItems.map((item, index) => {
             const hasChildren = (childrenMap.get(item.id) || []).length > 0
             const isExpanded = expandedIds.has(item.id)
             // 计算 depth：
@@ -382,6 +382,17 @@ export function TodoList({
               }
             }
 
+            // 计算每个层级是否是最后一个子项
+            // 对于每个层级，如果下一个项的 depth 小于等于该层级，说明该层级在当前项之后没有后续项了
+            const isLastInLevel: boolean[] = []
+            for (let level = 0; level < depth; level++) {
+              // 查找下一个项
+              const nextItem = flattenedItems[index + 1]
+              // 如果没有下一项，或下一项的层级 <= 当前层级，说明当前层级是最后的
+              const isLast = !nextItem || nextItem.depth <= level
+              isLastInLevel.push(isLast)
+            }
+
             return (
               <SortableTodoItem
                 key={item.id}
@@ -391,6 +402,7 @@ export function TodoList({
                 hasChildren={hasChildren}
                 isExpanded={isExpanded}
                 busyTodoIds={busyTodoIds}
+                isLastInLevel={isLastInLevel}
                 toggleExpanded={toggleExpanded}
                 onToggleCompleted={onToggleCompleted}
                 onUpdateTitle={onUpdateTitle}
@@ -408,16 +420,17 @@ export function TodoList({
       </SortableContext>
       {createPortal(
         <DragOverlay dropAnimation={null}>
-          {activeId && activeItem ? (
+          {activeId && activeItem && projected ? (
             <SortableTodoItem
               id={activeId}
               todo={activeItem}
-              depth={activeItem.depth}
+              depth={projected.depth}
               hasChildren={(childrenMap.get(activeId) || []).length > 0}
               isExpanded={false}
               busyTodoIds={busyTodoIds}
               clone={true}
               childCount={getChildCount(todos, activeId) + 1}
+              isLastInLevel={Array.from({ length: projected.depth }, () => false)}
               toggleExpanded={() => {}}
               onToggleCompleted={() => {}}
               onUpdateTitle={() => {}}

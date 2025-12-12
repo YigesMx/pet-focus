@@ -31,6 +31,7 @@ export type SortableTodoItemProps = {
   busyTodoIds: Set<number>
   clone?: boolean
   childCount?: number
+  isLastInLevel: boolean[] // 每个层级是否是最后一个子项
   toggleExpanded: (id: number) => void
   onToggleCompleted: (id: number, completed: boolean) => void
   onUpdateTitle: (id: number, title: string) => void
