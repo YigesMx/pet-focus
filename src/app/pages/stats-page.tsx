@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react"
-import { Clock, Trash2, Edit2, Check, X, Tag } from "lucide-react"
+import { Clock, Trash2, Edit2, Check, X, Tag, Link2 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -25,6 +25,7 @@ import { ContributionWall, StatsOverview } from "@/features/stats"
 import { toast } from "sonner"
 import { TagSelector, TagList } from "@/features/tag/components"
 import { useSessionTagsQuery, useSetSessionTagsMutation } from "@/features/tag/api"
+import { SessionTodoLinkSelector } from "@/features/pomodoro/components/session-todo-link-selector"
 
 function formatDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600)
@@ -136,6 +137,15 @@ function SessionItem({ sessionId, onDelete }: SessionItemProps) {
         </div>
       </AccordionTrigger>
       <AccordionContent className="pb-4">
+        {/* 关联待办区域 */}
+        <div className="mb-4 space-y-2">
+          <Label className="flex items-center gap-2 text-sm font-medium">
+            <Link2 className="size-4" />
+            关联待办
+          </Label>
+          <SessionTodoLinkSelector sessionId={sessionId} />
+        </div>
+
         {/* 标签区域 */}
         <div className="mb-4 space-y-2">
           <Label className="flex items-center gap-2 text-sm font-medium">

@@ -83,6 +83,12 @@ impl Feature for PomodoroFeature {
             let migration = super::data::restructure_migration::PomodoroRestructureMigration;
             Box::pin(async move { migration.up(manager).await })
         });
+
+        // Session-Todo 关联表迁移
+        registry.register_migration("session_todo_links_migration", |manager| {
+            let migration = super::data::session_todo_links_migration::SessionTodoLinksMigration;
+            Box::pin(async move { migration.up(manager).await })
+        });
     }
 }
 

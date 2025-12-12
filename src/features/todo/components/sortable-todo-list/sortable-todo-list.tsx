@@ -42,6 +42,8 @@ export function TodoList({
   onAddSubtask,
   onStartFocus,
   onUpdateDueDate,
+  featureOptions,
+  rootTodoId,
 }: TodoListProps) {
   const [expandedIds, setExpandedIds] = useState<Set<number>>(() => {
     // 尝试从 localStorage 读取保存的展开状态
@@ -113,12 +115,27 @@ export function TodoList({
 
   // 扁平化 todos，处理展开/折叠状态
   const flattenedItems = useMemo(() => {
-    const flattenedTree = flattenTree(todos)
+    // 如果指定了 rootTodoId，只显示该 todo 的子任务
+    let todosToFlatten = todos
+    let startParentId: number | null = null
+    
+    if (rootTodoId !== undefined) {
+      // 获取所有属于 rootTodoId 的递归子任务
+      const getDescendants = (parentId: number): Todo[] => {
+        const children = todos.filter(t => t.parent_id === parentId)
+        return children.flatMap(child => [child, ...getDescendants(child.id)])
+      }
+      todosToFlatten = getDescendants(rootTodoId)
+      // 使用 rootTodoId 作为起始父节点
+      startParentId = rootTodoId
+    }
+
+    const flattenedTree = flattenTree(todosToFlatten, startParentId)
 
     // 收集折叠的项
     const collapsedItems = flattenedTree.reduce<number[]>(
       (acc, item) => {
-        const hasChildren = todos.some((t) => t.parent_id === item.id)
+        const hasChildren = todosToFlatten.some((t) => t.parent_id === item.id)
         if (hasChildren && !expandedIds.has(item.id)) {
           return [...acc, item.id]
         }
@@ -149,7 +166,7 @@ export function TodoList({
     }
     
     return filteredItems
-  }, [todos, expandedIds, activeId, pendingDrop])
+  }, [todos, expandedIds, activeId, pendingDrop, rootTodoId])
 
   // 计算投影
   const projected =
@@ -239,7 +256,11 @@ export function TodoList({
       return
     }
 
-    const newParentId = projected.parentId
+    // 如果有 rootTodoId，且 projected.parentId 为 null，则使用 rootTodoId 作为父级
+    // 因为在子任务列表中，顶层元素的父级应该是 rootTodoId 而不是 null
+    const newParentId = (rootTodoId !== undefined && projected.parentId === null)
+      ? rootTodoId
+      : projected.parentId
     
     // 检查父级是否改变
     const parentChanged = (draggedTodo.parent_id ?? null) !== newParentId
@@ -413,6 +434,7 @@ export function TodoList({
                 onUpdateDueDate={onUpdateDueDate}
                 openActionId={openActionId}
                 setOpenActionId={setOpenActionId}
+                featureOptions={featureOptions}
               />
             )
           })}
@@ -439,6 +461,7 @@ export function TodoList({
               onAddSubtask={() => {}}
               openActionId={null}
               setOpenActionId={() => {}}
+              featureOptions={featureOptions}
             />
           ) : null}
         </DragOverlay>,

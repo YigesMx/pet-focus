@@ -78,6 +78,91 @@ pub fn register_handlers(feature: &PomodoroFeature, registry: &mut webserver::Ha
             Ok(serde_json::to_value(status).unwrap_or(json!({})))
         })
     });
+
+    // ==================== Session-Todo Links ====================
+
+    // List session todo links
+    registry.register_call("session_todo_link.list", |_method, params, ctx| {
+        Box::pin(async move {
+            let session_id = params
+                .get("sessionId")
+                .and_then(|v| v.as_i64())
+                .map(|v| v as i32)
+                .context("Missing sessionId")?;
+
+            let links = service::list_session_todo_links(ctx.db(), session_id)
+                .await
+                .context("Failed to list session todo links")?;
+
+            Ok(serde_json::to_value(links).unwrap_or(json!([])))
+        })
+    });
+
+    // Add session todo link
+    registry.register_call("session_todo_link.add", |_method, params, ctx| {
+        Box::pin(async move {
+            let session_id = params
+                .get("sessionId")
+                .and_then(|v| v.as_i64())
+                .map(|v| v as i32)
+                .context("Missing sessionId")?;
+            let todo_id = params
+                .get("todoId")
+                .and_then(|v| v.as_i64())
+                .map(|v| v as i32)
+                .context("Missing todoId")?;
+
+            let link = service::add_session_todo_link(ctx.db(), session_id, todo_id)
+                .await
+                .context("Failed to add session todo link")?;
+
+            Ok(serde_json::to_value(link).unwrap_or(json!({})))
+        })
+    });
+
+    // Remove session todo link
+    registry.register_call("session_todo_link.remove", |_method, params, ctx| {
+        Box::pin(async move {
+            let session_id = params
+                .get("sessionId")
+                .and_then(|v| v.as_i64())
+                .map(|v| v as i32)
+                .context("Missing sessionId")?;
+            let todo_id = params
+                .get("todoId")
+                .and_then(|v| v.as_i64())
+                .map(|v| v as i32)
+                .context("Missing todoId")?;
+
+            service::remove_session_todo_link(ctx.db(), session_id, todo_id)
+                .await
+                .context("Failed to remove session todo link")?;
+
+            Ok(json!({ "success": true }))
+        })
+    });
+
+    // Reorder session todo links
+    registry.register_call("session_todo_link.reorder", |_method, params, ctx| {
+        Box::pin(async move {
+            let session_id = params
+                .get("sessionId")
+                .and_then(|v| v.as_i64())
+                .map(|v| v as i32)
+                .context("Missing sessionId")?;
+            let todo_ids: Vec<i32> = params
+                .get("todoIds")
+                .and_then(|v| v.as_array())
+                .map(|arr| arr.iter().filter_map(|v| v.as_i64().map(|n| n as i32)).collect())
+                .unwrap_or_default();
+
+            service::reorder_session_todo_links(ctx.db(), session_id, todo_ids)
+                .await
+                .context("Failed to reorder session todo links")?;
+
+            Ok(json!({ "success": true }))
+        })
+    });
 }
 
 #[cfg(not(any(target_os = "android", target_os = "ios")))]

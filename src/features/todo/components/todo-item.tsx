@@ -35,6 +35,10 @@ type TodoItemProps = {
   onDelete: (id: number) => void
   onStartFocus?: (todoId: number) => void
   onUpdateDueDate?: (id: number, dueDate: string | null, reminderOffsetMinutes?: number | null) => void
+  // 功能开关
+  disablePlay?: boolean
+  disableDelete?: boolean
+  disableAddSubtask?: boolean
 }
 
 export function TodoItem({
@@ -52,6 +56,9 @@ export function TodoItem({
   onDelete,
   onStartFocus,
   onUpdateDueDate,
+  disablePlay = false,
+  disableDelete = false,
+  disableAddSubtask = false,
 }: TodoItemProps) {
   const [draftTitle, setDraftTitle] = useState(todo.title)
 
@@ -171,39 +178,45 @@ export function TodoItem({
       </ButtonGroup>
       {moreActionsOpen && (
         <>
+          {!disableDelete && (
+            <ButtonGroup>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onDelete(todo.id)
+                }}
+              >
+                <Trash className="size-4" />
+              </Button>
+            </ButtonGroup>
+          )}
           <ButtonGroup>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={(e) => {
-                e.stopPropagation()
-                onDelete(todo.id)
-              }}
-            >
-              <Trash className="size-4" />
-            </Button>
-          </ButtonGroup>
-          <ButtonGroup>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={(e) => {
-                e.stopPropagation()
-                if (onStartFocus) onStartFocus(todo.id)
-              }}
-            >
-              <Play className="size-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={(e) => {
-                e.stopPropagation()
-                onAddSubtask()
-              }}
-            >
-              <Plus className="size-4" />
-            </Button>
+            {!disablePlay && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (onStartFocus) onStartFocus(todo.id)
+                }}
+              >
+                <Play className="size-4" />
+              </Button>
+            )}
+            {!disableAddSubtask && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onAddSubtask()
+                }}
+              >
+                <Plus className="size-4" />
+              </Button>
+            )}
             <Button
               variant="outline"
               size="icon"

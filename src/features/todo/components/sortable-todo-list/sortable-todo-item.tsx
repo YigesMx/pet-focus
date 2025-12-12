@@ -28,6 +28,7 @@ export function SortableTodoItem({
   onUpdateDueDate,
   openActionId,
   setOpenActionId,
+  featureOptions,
 }: SortableTodoItemProps) {
   const {
     attributes,
@@ -38,7 +39,7 @@ export function SortableTodoItem({
     isDragging,
   } = useSortable({
     id,
-    disabled: busyTodoIds.has(id) || clone,
+    disabled: busyTodoIds.has(id) || clone || featureOptions?.disableDrag,
     animateLayoutChanges,
   })
 
@@ -105,6 +106,9 @@ export function SortableTodoItem({
             onDelete={onDelete}
             onStartFocus={onStartFocus}
             onUpdateDueDate={onUpdateDueDate}
+            disablePlay={featureOptions?.disablePlay}
+            disableDelete={featureOptions?.disableDelete}
+            disableAddSubtask={featureOptions?.disableAddSubtask}
           />
         </div>
       </div>

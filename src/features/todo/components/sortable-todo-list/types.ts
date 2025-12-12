@@ -7,6 +7,14 @@ export type FlattenedTodo = Todo & {
   index: number
 }
 
+// 功能开关选项
+export type TodoListFeatureOptions = {
+  disablePlay?: boolean
+  disableDelete?: boolean
+  disableAddSubtask?: boolean
+  disableDrag?: boolean
+}
+
 export type TodoListProps = {
   todos: Todo[]
   isLoading?: boolean
@@ -20,6 +28,10 @@ export type TodoListProps = {
   onAddSubtask: (parentId: number) => void
   onStartFocus?: (todoId: number) => void
   onUpdateDueDate?: (id: number, dueDate: string | null, reminderOffsetMinutes?: number | null) => void
+  // 功能开关
+  featureOptions?: TodoListFeatureOptions
+  // 只显示指定 todo 的子任务（用于 linked todo block）
+  rootTodoId?: number
 }
 
 export type SortableTodoItemProps = {
@@ -42,4 +54,6 @@ export type SortableTodoItemProps = {
   onUpdateDueDate?: (id: number, dueDate: string | null, reminderOffsetMinutes?: number | null) => void
   openActionId: number | null
   setOpenActionId: (id: number | null) => void
+  // 功能开关
+  featureOptions?: TodoListFeatureOptions
 }
