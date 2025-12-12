@@ -11,8 +11,8 @@ use serde_json::json;
 use tauri::{AppHandle, Manager, Wry};
 use tokio::sync::Mutex;
 
-use crate::features::todo::data::entity;
 use crate::features::todo::core::fractional_index;
+use crate::features::todo::data::entity;
 
 use super::{
     client::{CalDavClient, CalDavItem, RemoteTodo},
@@ -470,15 +470,14 @@ async fn create_local_todos_with_uniform_order(
     // 第三步：为每组分配 order_index
     for (parent_id, indices) in groups {
         // 获取该 parent 下的最小 order_index
-        let mut query = entity::Entity::find()
-            .filter(entity::Column::DeletedAt.is_null());
-        
+        let mut query = entity::Entity::find().filter(entity::Column::DeletedAt.is_null());
+
         if let Some(pid) = parent_id {
             query = query.filter(entity::Column::ParentId.eq(pid));
         } else {
             query = query.filter(entity::Column::ParentId.is_null());
         }
-        
+
         let min_order_index = query
             .all(db)
             .await?
@@ -489,10 +488,10 @@ async fn create_local_todos_with_uniform_order(
         // 在 0 到 min 之间均匀分配
         let count = indices.len();
         let min_val = min_order_index.unwrap_or(10.0); // 如果没有最小值，默认为 10
-        
+
         // 计算均匀间隔：从 0 开始，到 min_val 结束，分成 count+1 份
         let step = min_val / (count as f64 + 1.0);
-        
+
         for (i, &idx) in indices.iter().enumerate() {
             let order_index = (i + 1) as f64 * step;
             active_models[idx].order_index = Set(Some(order_index));
@@ -535,16 +534,15 @@ async fn create_local_from_remote(
         Set(pid) => *pid,
         _ => None,
     };
-    
-    let mut query = entity::Entity::find()
-        .filter(entity::Column::DeletedAt.is_null());
-    
+
+    let mut query = entity::Entity::find().filter(entity::Column::DeletedAt.is_null());
+
     if let Some(pid) = parent_id {
         query = query.filter(entity::Column::ParentId.eq(pid));
     } else {
         query = query.filter(entity::Column::ParentId.is_null());
     }
-    
+
     let min_order_index = query
         .all(db)
         .await?

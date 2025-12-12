@@ -14,7 +14,10 @@ pub fn register_handlers(feature: &PomodoroFeature, registry: &mut webserver::Ha
     // 注册事件频道
     registry.register_event("pomodoro.status", "番茄钟状态变更事件");
     registry.register_event("pomodoro.tick", "番茄钟每秒心跳事件");
-    registry.register_event("pomodoro.events", "番茄钟生命周期事件(start/finish/stop/skip)");
+    registry.register_event(
+        "pomodoro.events",
+        "番茄钟生命周期事件(start/finish/stop/skip)",
+    );
 
     // Start
     registry.register_call("pomodoro.start", move |_method, _params, ctx| {

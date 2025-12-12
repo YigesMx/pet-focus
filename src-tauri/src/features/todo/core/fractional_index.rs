@@ -1,6 +1,6 @@
 /// Fractional Indexing 实现
 /// 使用浮点数方法：每次插入时计算前后位置的平均数
-/// 
+///
 /// 规则：
 /// - 两个位置之间：取平均值 (a + b) / 2
 /// - 在开头（before=None）：after / 2
@@ -42,7 +42,7 @@ pub fn should_rebalance(order_index: f64) -> bool {
 /// 按 BASE_INTERVAL (10) 为间隔重新生成
 pub fn generate_balanced_keys(count: usize) -> Vec<f64> {
     let mut keys = Vec::with_capacity(count);
-    
+
     for i in 1..=count {
         let val = (i as f64) * BASE_INTERVAL;
         keys.push(val);
@@ -66,15 +66,15 @@ mod tests {
         // 第一个：10
         let key1 = generate_key_between(None, None);
         assert_eq!(key1, 10.0);
-        
+
         // 在末尾：10 + 10 = 20
         let key2 = generate_key_between(Some(key1), None);
         assert_eq!(key2, 20.0);
-        
+
         // 在 10 和 20 之间：(10 + 20) / 2 = 15
         let key3 = generate_key_between(Some(key1), Some(key2));
         assert_eq!(key3, 15.0);
-        
+
         // 验证排序
         assert!(key1 < key2);
         assert!(key1 < key3);
@@ -102,7 +102,7 @@ mod tests {
     fn test_generate_balanced_keys() {
         let keys = generate_balanced_keys(5);
         assert_eq!(keys.len(), 5);
-        
+
         // 应该是 10, 20, 30, 40, 50
         assert_eq!(keys[0], 10.0);
         assert_eq!(keys[1], 20.0);

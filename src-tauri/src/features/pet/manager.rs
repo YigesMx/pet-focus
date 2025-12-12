@@ -35,7 +35,7 @@ impl PetManager {
             .map_err(|e| format!("Failed to spawn sidecar: {}", e))?;
 
         let child_arc = self.child.clone();
-        
+
         // 监控进程状态
         tauri::async_runtime::spawn(async move {
             use tauri_plugin_shell::process::CommandEvent;
@@ -49,7 +49,7 @@ impl PetManager {
             // 通道关闭，确保清理
             let mut guard = child_arc.lock().unwrap();
             if guard.is_some() {
-                 *guard = None;
+                *guard = None;
             }
         });
 

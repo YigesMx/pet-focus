@@ -40,16 +40,17 @@ impl Feature for PetFeature {
 
     async fn initialize(&self, app_state: &AppState) -> Result<()> {
         let manager = Arc::new(PetManager::new(app_state.app_handle()));
-        
+
         // 检查自动启动设置 (默认为 true)
-        let should_start = crate::features::settings::core::service::SettingService::get_or_default(
-            app_state.db(),
-            "pet.auto_start",
-            "true",
-        )
-        .await
-        .map(|v| v == "true")
-        .unwrap_or(true);
+        let should_start =
+            crate::features::settings::core::service::SettingService::get_or_default(
+                app_state.db(),
+                "pet.auto_start",
+                "true",
+            )
+            .await
+            .map(|v| v == "true")
+            .unwrap_or(true);
 
         // 启动逻辑
         #[cfg(not(any(target_os = "android", target_os = "ios")))]

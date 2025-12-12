@@ -42,29 +42,33 @@ impl MigrationTrait for AddOrderIndexMigration {
         // 按 parent_id 分组并分配 order_index
         let mut current_parent: Option<i32> = None;
         let mut counter = 1;
-        
+
         for row in todos {
-            let id: i32 = row.try_get("", "id")
+            let id: i32 = row
+                .try_get("", "id")
                 .context("failed to get id")
                 .map_err(|e| DbErr::Custom(e.to_string()))?;
             let parent_id: Option<i32> = row.try_get("", "parent_id").ok();
-            
+
             // 如果 parent_id 改变，重置计数器
             if parent_id != current_parent {
                 current_parent = parent_id;
                 counter = 1;
             }
-            
+
             let order_value = (counter as f64) * 10.0;
-            
+
             db.execute(Statement::from_string(
                 backend,
-                format!("UPDATE todos SET order_index = {} WHERE id = {}", order_value, id),
+                format!(
+                    "UPDATE todos SET order_index = {} WHERE id = {}",
+                    order_value, id
+                ),
             ))
             .await
             .context("failed to update order_index")
             .map_err(|e| DbErr::Custom(e.to_string()))?;
-            
+
             counter += 1;
         }
 
