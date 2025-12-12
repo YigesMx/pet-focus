@@ -1,9 +1,13 @@
 import { type CSSProperties } from "react"
-import { useSortable } from "@dnd-kit/sortable"
+import { useSortable, type AnimateLayoutChanges } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 
 import { TodoItem } from "../todo-item"
 import type { SortableTodoItemProps } from "./types"
+
+// 禁用拖放过程中和结束时的布局动画，避免元素闪烁抖动
+const animateLayoutChanges: AnimateLayoutChanges = ({ isSorting, wasDragging }) =>
+  isSorting || wasDragging ? false : true
 
 export function SortableTodoItem({
   id,
@@ -33,6 +37,7 @@ export function SortableTodoItem({
   } = useSortable({
     id,
     disabled: busyTodoIds.has(id) || clone,
+    animateLayoutChanges,
   })
 
   const style: CSSProperties = {

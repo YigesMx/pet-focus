@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect, useRef } from "react"
 import { createPortal } from "react-dom"
 import { ListTodo, Loader2 } from "lucide-react"
 import {
@@ -47,6 +47,15 @@ export function TodoList({
   const [overId, setOverId] = useState<number | null>(null)
   const [offsetLeft, setOffsetLeft] = useState(0)
   const [openActionId, setOpenActionId] = useState<number | null>(null)
+  // 保存拖动结束时的状态，用于在数据更新前保持列表顺序和 depth 不变
+  const [pendingDrop, setPendingDrop] = useState<{
+    activeId: number
+    overId: number
+    depth: number
+    parentId: number | null
+  } | null>(null)
+  // 追踪设置 pendingDrop 时的 todos 引用，用于判断数据是否已更新
+  const todosRefAtPendingDrop = useRef<typeof todos | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -55,6 +64,18 @@ export function TodoList({
       },
     })
   )
+
+  // 当数据更新后，清除 pendingDrop
+  useEffect(() => {
+    if (pendingDrop && todosRefAtPendingDrop.current !== null) {
+      // 只有当 todos 引用变化时才清除 pendingDrop
+      // 这表示数据已经从服务器更新
+      if (todos !== todosRefAtPendingDrop.current) {
+        setPendingDrop(null)
+        todosRefAtPendingDrop.current = null
+      }
+    }
+  }, [todos, pendingDrop])
 
   // 扁平化 todos，处理展开/折叠状态
   const flattenedItems = useMemo(() => {
@@ -72,12 +93,29 @@ export function TodoList({
       []
     )
 
+    // 确定要排除子节点的 ID：使用当前拖动的 activeId 或 pendingDrop 的 activeId
+    const excludeChildrenId = activeId ?? pendingDrop?.activeId ?? null
+    
     // 移除被拖动项和折叠项的子节点
-    return removeChildrenOf(
+    const filteredItems = removeChildrenOf(
       flattenedTree,
-      activeId != null ? [activeId, ...collapsedItems] : collapsedItems
+      excludeChildrenId != null ? [excludeChildrenId, ...collapsedItems] : collapsedItems
     )
-  }, [todos, expandedIds, activeId])
+    
+    // 如果有 pendingDrop，模拟 arrayMove 后的顺序
+    if (pendingDrop && !activeId) {
+      const activeIndex = filteredItems.findIndex(item => item.id === pendingDrop.activeId)
+      const overIndex = filteredItems.findIndex(item => item.id === pendingDrop.overId)
+      if (activeIndex !== -1 && overIndex !== -1) {
+        const result = [...filteredItems]
+        const [removed] = result.splice(activeIndex, 1)
+        result.splice(overIndex, 0, removed)
+        return result
+      }
+    }
+    
+    return filteredItems
+  }, [todos, expandedIds, activeId, pendingDrop])
 
   // 计算投影
   const projected =
@@ -153,9 +191,8 @@ export function TodoList({
   }
 
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
-    resetState()
-
     if (!projected || !over) {
+      resetState()
       return
     }
 
@@ -164,6 +201,7 @@ export function TodoList({
 
     const draggedTodo = todos.find((t) => t.id === draggedTodoId)
     if (!draggedTodo) {
+      resetState()
       return
     }
 
@@ -176,6 +214,7 @@ export function TodoList({
     if (!parentChanged) {
       // 父级没变，检查是否在同一位置（拖到自己身上）
       if (draggedTodoId === overTodoId) {
+        resetState()
         return
       }
     }
@@ -190,6 +229,7 @@ export function TodoList({
     }
 
     if (isDescendant(projected.parentId, draggedTodoId)) {
+      resetState()
       return
     }
 
@@ -199,6 +239,7 @@ export function TodoList({
     const overIndex = flattenedItems.findIndex((item) => item.id === overTodoId)
     
     if (activeIndex === -1 || overIndex === -1) {
+      resetState()
       return
     }
 
@@ -249,6 +290,19 @@ export function TodoList({
       parentId: newParentId,
     })
 
+    // 保存拖动结束时的状态，用于在数据更新前保持列表顺序和 depth
+    // 同时保存当前 todos 引用，用于判断数据是否已更新
+    todosRefAtPendingDrop.current = todos
+    setPendingDrop({
+      activeId: draggedTodoId,
+      overId: overTodoId,
+      depth: projected.depth,
+      parentId: projected.parentId,
+    })
+    
+    // 立即重置拖动状态
+    resetState()
+    
     void onReorder(draggedTodoId, beforeId, afterId, newParentId)
   }
 
@@ -278,8 +332,21 @@ export function TodoList({
           {flattenedItems.map((item) => {
             const hasChildren = (childrenMap.get(item.id) || []).length > 0
             const isExpanded = expandedIds.has(item.id)
-            // 关键：如果是正在拖动的项，使用投影的 depth
-            const depth = item.id === activeId && projected ? projected.depth : item.depth
+            // 计算 depth：
+            // 1. 如果正在拖动该项，使用当前投影的 depth
+            // 2. 如果拖动刚结束但数据未更新，使用保存的 pendingDrop.depth
+            // 3. 否则使用 item 自身的 depth
+            let depth = item.depth
+            if (item.id === activeId && projected) {
+              depth = projected.depth
+            } else if (pendingDrop && item.id === pendingDrop.activeId) {
+              // 检查数据是否已更新（parent_id 是否匹配）
+              const currentParentId = item.parent_id ?? null
+              if (currentParentId !== pendingDrop.parentId) {
+                // 数据还未更新，使用保存的 depth
+                depth = pendingDrop.depth
+              }
+            }
 
             return (
               <SortableTodoItem
