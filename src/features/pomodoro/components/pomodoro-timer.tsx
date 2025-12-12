@@ -20,10 +20,16 @@ import {
 } from "@/features/pomodoro/hooks"
 import { TimeAdjustmentDialog } from "./time-adjustment-dialog"
 import { SessionTodoLinkSelector } from "./session-todo-link-selector"
+import { SessionHistoryList } from "./session-history-list"
 import { TagSelector } from "@/features/tag/components"
 import { useSessionTagsQuery, useSetSessionTagsMutation } from "@/features/tag/api"
 
-export function PomodoroTimer() {
+interface PomodoroTimerProps {
+  initialTodoId?: number | null
+  onFocusStarted?: () => void
+}
+
+export function PomodoroTimer({ initialTodoId, onFocusStarted }: PomodoroTimerProps = {}) {
   const { status, isBusy, start, pause, resume, skip, stop, display } = usePomodoro()
   const { data: activeSession, isLoading: sessionLoading } = useActiveSession()
   const { data: sessionRecords } = useSessionRecords(activeSession?.id ?? 0)
@@ -116,6 +122,37 @@ export function PomodoroTimer() {
     },
     [hasRealSession, activeSession, setSessionTagsMutation],
   )
+
+  // 处理从 TodoPage 传入的 initialTodoId
+  const initialTodoProcessedRef = useRef(false)
+  useEffect(() => {
+    const handleInitialTodo = async () => {
+      if (!initialTodoId || initialTodoProcessedRef.current) {
+        return
+      }
+
+      console.log('[PomodoroTimer] 处理 initialTodoId:', initialTodoId)
+      initialTodoProcessedRef.current = true
+
+      // 如果已有 real session，先归档它
+      if (hasRealSession && activeSession) {
+        console.log('[PomodoroTimer] 已有 real session，先归档')
+        await archiveSessionMutation.mutateAsync(activeSession.id)
+      }
+
+      // 将 todo 添加到 pending 列表
+      setPendingTodoIds([initialTodoId])
+
+      // 启动专注计时
+      console.log('[PomodoroTimer] 启动专注计时')
+      await start()
+
+      // 通知父组件已启动
+      onFocusStarted?.()
+    }
+
+    void handleInitialTodo()
+  }, [initialTodoId, hasRealSession, activeSession, archiveSessionMutation, start, onFocusStarted])
 
   const isRunning = status?.running ?? false
   const isPaused = status?.paused ?? false
@@ -510,6 +547,9 @@ export function PomodoroTimer() {
           </CardContent>
         </Card>
       )}
+
+      {/* 历史会话列表 */}
+      <SessionHistoryList excludeSessionId={activeSession?.id} asCard />
 
       {/* Time Adjustment Dialog */}
       <TimeAdjustmentDialog

@@ -36,6 +36,7 @@ function App() {
         return (
           <TodosPage
             onStartFocus={(todoId) => {
+              console.log('[App] 从 TodoPage 启动专注，todoId:', todoId)
               setCurrentFocusTodoId(todoId);
               setCurrentPage("focus");
             }}
@@ -45,6 +46,10 @@ function App() {
         return (
           <FocusPage
             focusTodoId={currentFocusTodoId}
+            onFocusStarted={() => {
+              // 专注启动后清空 focusTodoId，避免重复处理
+              setCurrentFocusTodoId(null);
+            }}
             onCancel={() => {
               setCurrentFocusTodoId(null);
               setCurrentPage("todos");
