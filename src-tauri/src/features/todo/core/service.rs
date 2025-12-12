@@ -336,10 +336,7 @@ pub async fn reorder_todo(
 ) -> Result<Todo> {
     eprintln!(
         "[Reorder] todo {}: before_id={:?}, after_id={:?}, new_parent_id={:?}",
-        id,
-        before_id,
-        after_id,
-        new_parent_id
+        id, before_id, after_id, new_parent_id
     );
     let now = Utc::now();
 
@@ -451,10 +448,7 @@ pub async fn reorder_todo(
 }
 
 /// 重新平衡指定父任务下所有子任务的 order_index
-async fn rebalance_order_indices(
-    db: &DatabaseConnection,
-    parent_id: Option<i32>,
-) -> Result<()> {
+async fn rebalance_order_indices(db: &DatabaseConnection, parent_id: Option<i32>) -> Result<()> {
     use sea_orm::QueryOrder;
 
     let mut todos = if let Some(pid) = parent_id {
@@ -479,8 +473,7 @@ async fn rebalance_order_indices(
 
     eprintln!(
         "[Rebalance] Rebalancing {} todos for parent_id={:?}",
-        count,
-        parent_id
+        count, parent_id
     );
 
     for (todo, new_index) in todos.iter_mut().zip(new_indices.iter()) {

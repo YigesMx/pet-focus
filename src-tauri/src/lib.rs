@@ -7,13 +7,12 @@ mod infrastructure;
 pub use core::AppState;
 
 use core::Feature;
+#[cfg(target_os = "windows")]
+use features::pet::PetFeature;
 use features::{
     pomodoro::PomodoroFeature, settings::SettingsFeature, tag::TagFeature, todo::TodoFeature,
     window::WindowFeature,
 };
-#[cfg(target_os = "windows")]
-use features::pet::PetFeature;
-
 use infrastructure::database::{init_db, DatabaseRegistry};
 use std::sync::Arc;
 use tauri::Manager;

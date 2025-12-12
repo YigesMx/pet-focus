@@ -7,14 +7,12 @@ use super::PetFeature;
 
 #[tauri::command]
 pub async fn pet_start(state: State<'_, AppState>) -> Result<(), String> {
-    let feature = state
-        .get_feature("pet")
-        .ok_or("Pet feature not found")?;
+    let feature = state.get_feature("pet").ok_or("Pet feature not found")?;
     let feature = feature
         .as_any()
         .downcast_ref::<PetFeature>()
         .ok_or("Invalid feature type")?;
-    
+
     if let Some(manager) = feature.manager() {
         manager.start()
     } else {
@@ -24,14 +22,12 @@ pub async fn pet_start(state: State<'_, AppState>) -> Result<(), String> {
 
 #[tauri::command]
 pub async fn pet_stop(state: State<'_, AppState>) -> Result<(), String> {
-    let feature = state
-        .get_feature("pet")
-        .ok_or("Pet feature not found")?;
+    let feature = state.get_feature("pet").ok_or("Pet feature not found")?;
     let feature = feature
         .as_any()
         .downcast_ref::<PetFeature>()
         .ok_or("Invalid feature type")?;
-    
+
     if let Some(manager) = feature.manager() {
         manager.stop()
     } else {
@@ -41,14 +37,12 @@ pub async fn pet_stop(state: State<'_, AppState>) -> Result<(), String> {
 
 #[tauri::command]
 pub async fn pet_status(state: State<'_, AppState>) -> Result<bool, String> {
-    let feature = state
-        .get_feature("pet")
-        .ok_or("Pet feature not found")?;
+    let feature = state.get_feature("pet").ok_or("Pet feature not found")?;
     let feature = feature
         .as_any()
         .downcast_ref::<PetFeature>()
         .ok_or("Invalid feature type")?;
-    
+
     if let Some(manager) = feature.manager() {
         Ok(manager.is_running())
     } else {

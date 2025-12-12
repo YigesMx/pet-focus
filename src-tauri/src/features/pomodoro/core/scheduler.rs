@@ -267,7 +267,7 @@ impl PomodoroManager {
         let _ = self
             .notifier
             .send_native(title.to_string(), body.to_string());
-        
+
         self.notifier.send_websocket_event(
             WS_EVENT_EVENTS.to_string(),
             serde_json::json!({
