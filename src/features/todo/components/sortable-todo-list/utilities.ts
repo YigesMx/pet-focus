@@ -1,3 +1,5 @@
+import { arrayMove } from "@dnd-kit/sortable"
+
 import type { Todo } from "@/features/todo/types/todo.types"
 import type { FlattenedTodo } from "./types"
 
@@ -93,27 +95,24 @@ export function getProjection(
   }
 
   const activeItem = items[activeItemIndex]
-  const overItem = items[overItemIndex]
+
+  // 关键修复：先执行 arrayMove，然后在移动后的数组中查找相邻项
+  // 这样才能正确计算拖动后的 previousItem 和 nextItem
+  const newItems = arrayMove(items, activeItemIndex, overItemIndex)
+  const previousItem = newItems[overItemIndex - 1]
+  const nextItem = newItems[overItemIndex + 1]
 
   // 计算拖动深度变化
   const dragDepth = Math.round(dragOffset / indentationWidth)
   const projectedDepth = activeItem.depth + dragDepth
 
-  // 计算最大和最小允许深度
-  const previousItem = items[overItemIndex - 1]
-  const nextItem = items[overItemIndex + 1]
-
   // 最大深度：
   // - 如果有前一项，可以是前一项的深度 + 1（成为其子项）
   // - 如果没有前一项，只能是 0（顶层）
-  // 但是，如果拖动到一个项的下方，也应该允许成为该项的子项
-  let maxDepth = 0
-  if (previousItem) {
-    maxDepth = previousItem.depth + 1
-  }
+  const maxDepth = previousItem ? previousItem.depth + 1 : 0
   
   // 最小深度：
-  // - 如果有后一项，不能比它更深
+  // - 如果有后一项，不能比它更浅
   // - 如果没有后一项，最小为 0
   const minDepth = nextItem ? nextItem.depth : 0
 
@@ -142,7 +141,7 @@ export function getProjection(
     }
 
     // 比前一项浅，向上查找相同深度的节点的父节点
-    const newParent = items
+    const newParent = newItems
       .slice(0, overItemIndex)
       .reverse()
       .find((item) => item.depth === depth)?.parentId
@@ -151,26 +150,6 @@ export function getProjection(
   }
 
   const parentId = getParentId()
-
-  if (depth !== activeItem.depth || parentId !== activeItem.parentId) {
-    console.log('[getProjection] DETAILED', {
-      activeId,
-      activeItem: { id: activeItem.id, depth: activeItem.depth, parentId: activeItem.parentId },
-      overId,
-      overItem: { id: overItem.id, depth: overItem.depth, parentId: overItem.parentId },
-      dragOffset,
-      projectedDepth,
-      finalDepth: depth,
-      maxDepth,
-      minDepth,
-      previousItem: previousItem ? { id: previousItem.id, depth: previousItem.depth, parentId: previousItem.parentId } : null,
-      nextItem: nextItem ? { id: nextItem.id, depth: nextItem.depth, parentId: nextItem.parentId } : null,
-      calculatedParentId: parentId,
-      logic: depth > (previousItem?.depth ?? -1) ? 'become child of previous' : 
-             depth === previousItem?.depth ? 'same level as previous' : 
-             'shallower than previous'
-    })
-  }
 
   return {
     depth,

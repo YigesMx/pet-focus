@@ -27,7 +27,7 @@ import {
   getProjection,
   getChildCount,
 } from "./utilities"
-import type { TodoListProps, FlattenedTodo } from "./types"
+import type { TodoListProps } from "./types"
 
 export function TodoList({
   todos,
@@ -73,21 +73,10 @@ export function TodoList({
     )
 
     // 移除被拖动项和折叠项的子节点
-    const result = removeChildrenOf(
+    return removeChildrenOf(
       flattenedTree,
       activeId != null ? [activeId, ...collapsedItems] : collapsedItems
     )
-    
-    if (activeId) {
-      const activeInResult = result.find(i => i.id === activeId)
-      console.log('[flattenedItems]', {
-        activeId,
-        activeInResult: activeInResult ? { id: activeInResult.id, depth: activeInResult.depth, parentId: activeInResult.parentId } : 'NOT FOUND',
-        totalItems: result.length,
-      })
-    }
-    
-    return result
   }, [todos, expandedIds, activeId])
 
   // 计算投影
@@ -150,7 +139,6 @@ export function TodoList({
   }
 
   const handleDragStart = ({ active }: DragStartEvent) => {
-    console.log('[DragStart] activeId:', active.id)
     setActiveId(Number(active.id))
     setOverId(Number(active.id))
     document.body.style.setProperty('cursor', 'grabbing')
@@ -165,11 +153,9 @@ export function TodoList({
   }
 
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
-    console.log('[DragEnd] active:', active.id, 'over:', over?.id, 'projected:', projected)
     resetState()
 
     if (!projected || !over) {
-      console.log('[DragEnd] Aborted: no projection or over')
       return
     }
 
@@ -178,7 +164,6 @@ export function TodoList({
 
     const draggedTodo = todos.find((t) => t.id === draggedTodoId)
     if (!draggedTodo) {
-      console.log('[DragEnd] Aborted: dragged todo not found')
       return
     }
 
@@ -191,7 +176,6 @@ export function TodoList({
     if (!parentChanged) {
       // 父级没变，检查是否在同一位置（拖到自己身上）
       if (draggedTodoId === overTodoId) {
-        console.log('[DragEnd] Aborted: same position (parent and position unchanged)')
         return
       }
     }
@@ -215,7 +199,6 @@ export function TodoList({
     const overIndex = flattenedItems.findIndex((item) => item.id === overTodoId)
     
     if (activeIndex === -1 || overIndex === -1) {
-      console.log('[DragEnd] Aborted: item not found')
       return
     }
 
@@ -259,14 +242,11 @@ export function TodoList({
       }
     }
 
-    console.log('[DragEnd] Calling onReorder:', {
-      draggedTodoId,
+    console.log('[Todo Reorder]', {
+      id: draggedTodoId,
       beforeId,
       afterId,
-      newParentId: projected.parentId,
-      targetDepth: projected.depth,
-      draggedNewIndex,
-      overIndex,
+      parentId: newParentId,
     })
 
     void onReorder(draggedTodoId, beforeId, afterId, newParentId)
