@@ -153,7 +153,11 @@ pub fn register_handlers(feature: &PomodoroFeature, registry: &mut webserver::Ha
             let todo_ids: Vec<i32> = params
                 .get("todoIds")
                 .and_then(|v| v.as_array())
-                .map(|arr| arr.iter().filter_map(|v| v.as_i64().map(|n| n as i32)).collect())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_i64().map(|n| n as i32))
+                        .collect()
+                })
                 .unwrap_or_default();
 
             service::reorder_session_todo_links(ctx.db(), session_id, todo_ids)

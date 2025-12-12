@@ -137,7 +137,7 @@ impl TagRepository {
         // 5. 更新相关 task 的 tags 字段（移除该标签名）
         if !task_ids.is_empty() {
             use crate::features::todo::data::entity as todo_entity;
-            
+
             for task_id in task_ids {
                 if let Ok(Some(task)) = todo_entity::Entity::find_by_id(task_id).one(db).await {
                     if let Some(tags_str) = &task.tags {
@@ -145,15 +145,17 @@ impl TagRepository {
                         let new_tags: Vec<&str> = tags_str
                             .split(',')
                             .map(|s| s.trim())
-                            .filter(|s| !s.is_empty() && s.to_lowercase() != tag_name.to_lowercase())
+                            .filter(|s| {
+                                !s.is_empty() && s.to_lowercase() != tag_name.to_lowercase()
+                            })
                             .collect();
-                        
+
                         let new_tags_str = if new_tags.is_empty() {
                             None
                         } else {
                             Some(new_tags.join(", "))
                         };
-                        
+
                         // 更新 task 的 tags 字段
                         let mut task_model: todo_entity::ActiveModel = task.into();
                         task_model.tags = Set(new_tags_str);
@@ -169,7 +171,7 @@ impl TagRepository {
             .exec(db)
             .await
             .context("failed to delete tag")?;
-        
+
         Ok(())
     }
 
@@ -230,11 +232,7 @@ impl TagRepository {
     }
 
     /// 添加任务标签
-    pub async fn add_tag_to_task(
-        db: &DatabaseConnection,
-        task_id: i32,
-        tag_id: i32,
-    ) -> Result<()> {
+    pub async fn add_tag_to_task(db: &DatabaseConnection, task_id: i32, tag_id: i32) -> Result<()> {
         // 检查是否已存在
         let existing = task_tag_entity::Entity::find()
             .filter(task_tag_entity::Column::TaskId.eq(task_id))

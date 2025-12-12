@@ -10,10 +10,10 @@ use crate::features::pomodoro::data::entities::{
 };
 use chrono::{DateTime, Utc};
 use sea_orm::{
+    sea_query::Expr,
     ActiveModelTrait,
     ActiveValue::{NotSet, Set},
     ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
-    sea_query::Expr,
 };
 
 const KEY_FOCUS: &str = "pomodoro.focus_minutes";
@@ -399,8 +399,12 @@ pub async fn add_session_todo_link(
         .filter(link_entity::Column::SessionId.eq(session_id))
         .all(db)
         .await?;
-    
-    let max_order = existing_links.iter().map(|l| l.sort_order).max().unwrap_or(0);
+
+    let max_order = existing_links
+        .iter()
+        .map(|l| l.sort_order)
+        .max()
+        .unwrap_or(0);
     let new_order = max_order + 1;
     let now = Utc::now();
 
@@ -446,4 +450,3 @@ pub async fn reorder_session_todo_links(
     }
     Ok(())
 }
-
