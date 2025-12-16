@@ -5,12 +5,14 @@ import { useEffect, useState } from "react";
 import { BottomNav } from "@/app/navigation/bottom-nav";
 import { FocusPage, SettingsPage, StatsPage, TodosPage, type Page } from "@/app/pages";
 import { NotificationCenter } from "@/components/app/notification-center";
+import { CloseConfirmationDialog } from "@/components/app/close-confirmation-dialog";
 import { listen } from "@tauri-apps/api/event";
 import { useQueryClient } from "@tanstack/react-query";
 
 function App() {
   const [currentPage, setCurrentPage] = useState<Page>("todos");
   const [currentFocusTodoId, setCurrentFocusTodoId] = useState<number | null>(null);
+  const [showCloseDialog, setShowCloseDialog] = useState(false);
   const queryClient = useQueryClient();
 
   // 在 App 级别监听会话记录更新事件，确保无论在哪个页面都能接收到
@@ -29,6 +31,21 @@ function App() {
       unlisten.then((fn) => fn());
     };
   }, [queryClient]);
+
+  // 监听窗口关闭请求事件（当用户设置为"每次询问"时触发）
+  useEffect(() => {
+    console.log("App: 开始监听 window-close-requested 事件");
+    
+    const unlisten = listen("window-close-requested", () => {
+      console.log("App: 收到 window-close-requested 事件，显示关闭确认对话框");
+      setShowCloseDialog(true);
+    });
+
+    return () => {
+      console.log("App: 清理 window-close-requested 事件监听器");
+      unlisten.then((fn) => fn());
+    };
+  }, []);
 
   const renderPage = () => {
     switch (currentPage) {
@@ -69,6 +86,12 @@ function App() {
     <>
       {/* 统一的通知管理中心 */}
       <NotificationCenter />
+
+      {/* 关闭确认对话框 */}
+      <CloseConfirmationDialog
+        open={showCloseDialog}
+        onOpenChange={setShowCloseDialog}
+      />
 
       <div className="flex h-dvh flex-col overflow-hidden bg-background">
         <div className="min-h-0 flex-1 overflow-y-auto">

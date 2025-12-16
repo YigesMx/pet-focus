@@ -24,6 +24,15 @@ pub fn get_handler() -> impl Fn(Invoke<tauri::Wry>) -> bool + Send + Sync + 'sta
         // Settings Feature Commands
         crate::features::settings::api::commands::get_theme_preference,
         crate::features::settings::api::commands::set_theme_preference,
+        crate::features::settings::api::commands::get_close_behavior,
+        crate::features::settings::api::commands::set_close_behavior,
+        crate::features::settings::api::commands::get_notification_settings,
+        crate::features::settings::api::commands::set_notification_settings,
+        // Window Feature Commands (Desktop only)
+        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        crate::features::window::api::commands::quit_app,
+        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        crate::features::window::api::commands::hide_window,
         // Tag Feature Commands
         crate::features::tag::api::commands::tag_get_all,
         crate::features::tag::api::commands::tag_create,

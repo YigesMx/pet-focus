@@ -34,4 +34,12 @@ pub fn register_handlers(registry: &mut HandlerRegistry) {
             Ok(json!({"success": true}))
         })
     });
+
+    // 退出应用（包括关闭 Pet 进程）
+    registry.register_call("window.quit", |_method, _params, ctx| {
+        Box::pin(async move {
+            manager::quit_app(ctx.app_handle());
+            Ok(json!({"success": true}))
+        })
+    });
 }

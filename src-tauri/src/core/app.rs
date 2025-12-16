@@ -127,6 +127,9 @@ impl AppState {
     /// 此时 AppState 已经被 Tauri 托管，可以通过 app.try_state() 访问。
     /// 执行需要访问已托管状态的初始化逻辑。
     pub async fn post_initialize(&self, app: &AppHandle<Wry>) -> anyhow::Result<()> {
+        // 加载通知设置到内存缓存
+        self.load_notification_settings().await;
+
         // 桌面平台特定的初始化
         #[cfg(not(any(target_os = "android", target_os = "ios")))]
         {
@@ -145,5 +148,22 @@ impl AppState {
         // 未来可以在这里添加桌面和移动平台通用的初始化逻辑
 
         Ok(())
+    }
+
+    /// 从数据库加载通知设置到内存缓存
+    async fn load_notification_settings(&self) {
+        use crate::features::settings::core::service::SettingService;
+        
+        match SettingService::get_or_default(&self.db, "notification.enabled", "true").await {
+            Ok(value) => {
+                let enabled = value.parse::<bool>().unwrap_or(true);
+                self.notification_manager.set_notification_enabled(enabled);
+            }
+            Err(e) => {
+                eprintln!("Failed to load notification settings: {}", e);
+                // 默认启用
+                self.notification_manager.set_notification_enabled(true);
+            }
+        }
     }
 }

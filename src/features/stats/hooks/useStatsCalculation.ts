@@ -109,14 +109,36 @@ export function useStatsCalculation() {
 
 /**
  * 获取月份的统计数据 Hook
+ * 即使该月没有任何记录，也会返回完整的月份结构（所有日期）
  */
 export function useMonthStats(yearMonth: string) {
-  const { stats } = useStatsCalculation()
+  // 获取所有 Sessions
+  const { data: sessions = [] } = useQuery({
+    queryKey: ["pomodoro:sessions:all"],
+    queryFn: () => listAllSessions(true),
+    staleTime: 5 * 60 * 1000,
+  })
 
+  // 获取所有 Records
+  const { data: allRecords = [] } = useQuery({
+    queryKey: ["pomodoro:records:all", sessions.map((s) => s.id).join(",")],
+    queryFn: async () => {
+      const results = await Promise.all(
+        sessions.map(async (session) => {
+          const records = await listSessionRecords(session.id)
+          return records
+        })
+      )
+      return results.flat()
+    },
+    enabled: sessions.length > 0,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // 直接计算请求月份的统计（即使没有记录也会返回完整月份结构）
   const monthStats = useMemo(() => {
-    if (!stats) return null
-    return stats.monthlyStats[yearMonth] ?? null
-  }, [stats, yearMonth])
+    return calculateMonthStats(allRecords, yearMonth)
+  }, [allRecords, yearMonth])
 
   return monthStats
 }
