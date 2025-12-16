@@ -156,17 +156,50 @@ export function calculateDayStats(records: PomodoroRecord[], dateStr: string): D
 }
 
 /**
+ * 获取某月的所有日期
+ */
+function getAllDatesInMonth(yearMonth: string): string[] {
+  const [year, month] = yearMonth.split("-").map(Number)
+  const daysInMonth = new Date(year, month, 0).getDate() // 获取该月天数
+  const dates: string[] = []
+  
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = `${yearMonth}-${String(day).padStart(2, "0")}`
+    dates.push(dateStr)
+  }
+  
+  return dates
+}
+
+/**
  * 计算月级统计数据
+ * 返回该月所有日期的统计数据（包括没有记录的日期）
  */
 export function calculateMonthStats(records: PomodoroRecord[], yearMonth: string): MonthStats {
   const monthRecords = records.filter((r) => formatYearMonth(r.start_at) === yearMonth)
 
-  // 按日期分组
+  // 获取该月所有日期
+  const allDates = getAllDatesInMonth(yearMonth)
+  
+  // 按日期分组（只包含有记录的日期）
   const byDate = groupRecordsByDate(monthRecords)
-  const dates = Object.keys(byDate).sort()
 
-  // 计算各日的统计
-  const days = dates.map((date) => calculateDayStats(monthRecords, date))
+  // 计算各日的统计（包括没有记录的日期）
+  const days = allDates.map((date) => {
+    if (byDate[date]) {
+      return calculateDayStats(monthRecords, date)
+    }
+    // 没有记录的日期返回空白统计
+    return {
+      date,
+      timestamp: getDateTimestamp(date),
+      totalSeconds: 0,
+      completedSessions: 0,
+      totalRecords: 0,
+      productivity: 0,
+      status: "idle" as const,
+    }
+  })
 
   // 计算聚合数据
   const focusRecords = monthRecords.filter((r) => r.kind === "focus")

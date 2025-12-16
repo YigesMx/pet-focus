@@ -1,3 +1,5 @@
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_notification::NotificationExt;
 
@@ -18,11 +20,26 @@ use tauri_plugin_notification::NotificationExt;
 #[derive(Clone)]
 pub struct NotificationManager {
     app_handle: AppHandle,
+    /// 系统通知是否启用（内存缓存，避免每次都查询数据库）
+    notification_enabled: Arc<AtomicBool>,
 }
 
 impl NotificationManager {
     pub fn new(app_handle: AppHandle) -> Self {
-        Self { app_handle }
+        Self {
+            app_handle,
+            notification_enabled: Arc::new(AtomicBool::new(true)), // 默认启用
+        }
+    }
+
+    /// 设置系统通知是否启用（由设置命令调用）
+    pub fn set_notification_enabled(&self, enabled: bool) {
+        self.notification_enabled.store(enabled, Ordering::SeqCst);
+    }
+
+    /// 检查系统通知是否启用
+    fn is_notification_enabled(&self) -> bool {
+        self.notification_enabled.load(Ordering::SeqCst)
     }
 
     /// 发送 WebSocket 事件通知
@@ -65,8 +82,16 @@ impl NotificationManager {
             .map_err(|e| anyhow::anyhow!("Failed to emit toast notification: {}", e))
     }
 
-    /// 发送 Native 系统通知（预留）
+    /// 发送 Native 系统通知
+    /// 
+    /// 发送前会检查用户是否启用了系统通知设置
     pub fn send_native(&self, title: String, body: String) -> anyhow::Result<()> {
+        // 检查通知是否启用
+        let is_enabled = self.is_notification_enabled();
+        if !is_enabled {
+            return Ok(()); // 静默返回，不发送通知
+        }
+
         // 使用 tauri-plugin-notification 发送系统通知
         // 桌面与移动平台若插件可用则正常通知；若不可用则静默返回 Ok(())
         let notifier = self.app_handle.notification();
