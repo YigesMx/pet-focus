@@ -414,7 +414,14 @@ async fn persist_finished_phase(state_ptr: &Arc<Mutex<State>>, app: &AppHandle<W
         // 如果是专注模式完成，发放金币奖励
         if matches!(kind, PomodoroSessionKind::Focus) {
             let focus_seconds = (end_at - start_at).num_seconds();
-            if let Err(e) = process_focus_complete_rewards(&db, state.notification(), focus_seconds, Some(record.id)).await {
+            if let Err(e) = process_focus_complete_rewards(
+                &db,
+                state.notification(),
+                focus_seconds,
+                Some(record.id),
+            )
+            .await
+            {
                 eprintln!("Failed to process focus complete rewards: {}", e);
             }
         }
@@ -494,7 +501,8 @@ async fn process_focus_complete_rewards(
     achievement_service::update_focus_stats(db, focus_seconds).await?;
 
     // 2. 发放金币奖励
-    let coins_event = achievement_service::reward_focus_complete(db, focus_seconds, record_id).await?;
+    let coins_event =
+        achievement_service::reward_focus_complete(db, focus_seconds, record_id).await?;
 
     // 3. 广播金币变化事件（给 Godot 宠物等外部客户端）
     notifier.send_websocket_event(
@@ -517,7 +525,10 @@ async fn process_focus_complete_rewards(
             serde_json::to_value(achievement).unwrap_or_default(),
         );
 
-        println!("解锁成就: {} - {}", achievement.name, achievement.description);
+        println!(
+            "解锁成就: {} - {}",
+            achievement.name, achievement.description
+        );
     }
 
     // 5. 广播统计数据更新事件

@@ -5,10 +5,7 @@ use sea_orm::{
     QuerySelect, Set,
 };
 
-use super::models::{
-    coin_rules, AchievementInfo, CoinsChangedEvent, UserStats,
-    ACHIEVEMENTS,
-};
+use super::models::{coin_rules, AchievementInfo, CoinsChangedEvent, UserStats, ACHIEVEMENTS};
 use crate::features::achievement::data::entities::{achievements, coin_transactions, user_stats};
 
 /// 获取或创建用户统计数据（单例模式，只有一条记录）
@@ -116,8 +113,8 @@ pub async fn reward_focus_complete(
     record_id: Option<i32>,
 ) -> Result<CoinsChangedEvent> {
     let focus_minutes = focus_seconds / 60;
-    let coins = (focus_minutes * coin_rules::COINS_PER_FOCUS_MINUTE)
-        + coin_rules::FOCUS_COMPLETE_BONUS;
+    let coins =
+        (focus_minutes * coin_rules::COINS_PER_FOCUS_MINUTE) + coin_rules::FOCUS_COMPLETE_BONUS;
 
     add_coins(
         db,
@@ -272,10 +269,11 @@ pub async fn list_achievements(db: &DatabaseConnection) -> Result<Vec<Achievemen
     let unlocked_achievements: Vec<achievements::Model> =
         achievements::Entity::find().all(db).await?;
 
-    let unlocked_map: std::collections::HashMap<String, achievements::Model> = unlocked_achievements
-        .into_iter()
-        .map(|a| (a.code.clone(), a))
-        .collect();
+    let unlocked_map: std::collections::HashMap<String, achievements::Model> =
+        unlocked_achievements
+            .into_iter()
+            .map(|a| (a.code.clone(), a))
+            .collect();
 
     let mut result = Vec::new();
     for achievement in ACHIEVEMENTS {

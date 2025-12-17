@@ -83,7 +83,7 @@ impl NotificationManager {
     }
 
     /// 发送 Native 系统通知
-    /// 
+    ///
     /// 发送前会检查用户是否启用了系统通知设置
     pub fn send_native(&self, title: String, body: String) -> anyhow::Result<()> {
         // 检查通知是否启用

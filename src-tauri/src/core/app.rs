@@ -153,7 +153,7 @@ impl AppState {
     /// 从数据库加载通知设置到内存缓存
     async fn load_notification_settings(&self) {
         use crate::features::settings::core::service::SettingService;
-        
+
         match SettingService::get_or_default(&self.db, "notification.enabled", "true").await {
             Ok(value) => {
                 let enabled = value.parse::<bool>().unwrap_or(true);

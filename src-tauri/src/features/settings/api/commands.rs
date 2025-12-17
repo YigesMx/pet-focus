@@ -84,9 +84,10 @@ fn normalize_close_behavior(value: &str) -> &'static str {
 /// 获取关闭行为设置
 #[tauri::command]
 pub async fn get_close_behavior(state: State<'_, AppState>) -> Result<CloseBehavior, String> {
-    let stored = SettingService::get_or_default(state.db(), "window.close_behavior", CLOSE_BEHAVIOR_DEFAULT)
-        .await
-        .map_err(|err| err.to_string())?;
+    let stored =
+        SettingService::get_or_default(state.db(), "window.close_behavior", CLOSE_BEHAVIOR_DEFAULT)
+            .await
+            .map_err(|err| err.to_string())?;
 
     // 不自动修正，保留 "ask" 值
     Ok(CloseBehavior { behavior: stored })
@@ -102,7 +103,9 @@ pub async fn set_close_behavior(
 
     SettingService::set(state.db(), "window.close_behavior", &normalized)
         .await
-        .map(|_| CloseBehavior { behavior: normalized })
+        .map(|_| CloseBehavior {
+            behavior: normalized,
+        })
         .map_err(|err| err.to_string())
 }
 
@@ -120,12 +123,16 @@ const NOTIFICATION_ENABLED_DEFAULT: bool = true;
 
 /// 获取系统通知设置
 #[tauri::command]
-pub async fn get_notification_settings(state: State<'_, AppState>) -> Result<NotificationSettings, String> {
+pub async fn get_notification_settings(
+    state: State<'_, AppState>,
+) -> Result<NotificationSettings, String> {
     let stored = SettingService::get_or_default(state.db(), "notification.enabled", "true")
         .await
         .map_err(|err| err.to_string())?;
 
-    let enabled = stored.parse::<bool>().unwrap_or(NOTIFICATION_ENABLED_DEFAULT);
+    let enabled = stored
+        .parse::<bool>()
+        .unwrap_or(NOTIFICATION_ENABLED_DEFAULT);
     Ok(NotificationSettings { enabled })
 }
 
@@ -139,9 +146,9 @@ pub async fn set_notification_settings(
     SettingService::set(state.db(), "notification.enabled", &enabled.to_string())
         .await
         .map_err(|err| err.to_string())?;
-    
+
     // 更新内存缓存
     state.notification().set_notification_enabled(enabled);
-    
+
     Ok(NotificationSettings { enabled })
 }

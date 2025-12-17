@@ -10,9 +10,8 @@ use core::Feature;
 #[cfg(target_os = "windows")]
 use features::pet::PetFeature;
 use features::{
-    achievement::AchievementFeature,
-    pomodoro::PomodoroFeature, settings::SettingsFeature, tag::TagFeature, todo::TodoFeature,
-    window::WindowFeature,
+    achievement::AchievementFeature, pomodoro::PomodoroFeature, settings::SettingsFeature,
+    tag::TagFeature, todo::TodoFeature, window::WindowFeature,
 };
 use infrastructure::database::{init_db, DatabaseRegistry};
 use std::sync::Arc;
