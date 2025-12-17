@@ -23,6 +23,8 @@ pub struct Model {
     pub max_streak_days: i32,
     /// 最后一次专注日期（用于计算连续天数）
     pub last_focus_date: Option<String>,
+    /// 最后一次每日奖励日期（用于每日启动奖励）
+    pub last_daily_reward_date: Option<String>,
     pub created_at: DateTimeUtc,
     pub updated_at: DateTimeUtc,
 }

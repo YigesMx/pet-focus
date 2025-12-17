@@ -33,6 +33,13 @@ export interface CoinTransaction {
   createdAt: string
 }
 
+export interface CoinsChangedEvent {
+  coins: number
+  delta: number
+  transactionType: string
+  description: string
+}
+
 // ==================== API Functions ====================
 
 /**
@@ -63,4 +70,12 @@ export async function listCoinTransactions(limit?: number): Promise<CoinTransact
   return await invoke<CoinTransaction[]>("achievement_list_transactions", {
     params: limit ? { limit } : undefined,
   })
+}
+
+/**
+ * 检查并领取每日启动奖励
+ * 返回奖励事件，如果今天已领取则返回 null
+ */
+export async function claimDailyReward(): Promise<CoinsChangedEvent | null> {
+  return await invoke<CoinsChangedEvent | null>("achievement_claim_daily_reward")
 }

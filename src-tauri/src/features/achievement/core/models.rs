@@ -216,4 +216,6 @@ pub mod coin_rules {
     pub const COINS_PER_FOCUS_MINUTE: i64 = 1;
     /// 完成一次专注的基础奖励
     pub const FOCUS_COMPLETE_BONUS: i64 = 5;
+    /// 每日启动奖励金币数
+    pub const DAILY_LOGIN_REWARD: i64 = 5;
 }

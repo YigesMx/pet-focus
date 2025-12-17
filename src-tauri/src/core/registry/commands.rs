@@ -28,6 +28,8 @@ pub fn get_handler() -> impl Fn(Invoke<tauri::Wry>) -> bool + Send + Sync + 'sta
         crate::features::settings::api::commands::set_close_behavior,
         crate::features::settings::api::commands::get_notification_settings,
         crate::features::settings::api::commands::set_notification_settings,
+        // Debug Commands
+        crate::features::settings::api::commands::debug_clear_all_user_data,
         // Window Feature Commands (Desktop only)
         #[cfg(not(any(target_os = "android", target_os = "ios")))]
         crate::features::window::api::commands::quit_app,
@@ -77,6 +79,7 @@ pub fn get_handler() -> impl Fn(Invoke<tauri::Wry>) -> bool + Send + Sync + 'sta
         crate::features::achievement::api::commands::achievement_get_coins,
         crate::features::achievement::api::commands::achievement_list,
         crate::features::achievement::api::commands::achievement_list_transactions,
+        crate::features::achievement::api::commands::achievement_claim_daily_reward,
         // WebServer Commands (Desktop only)
         #[cfg(not(any(target_os = "android", target_os = "ios")))]
         crate::infrastructure::webserver::api::commands::start_web_server,

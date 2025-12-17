@@ -8,12 +8,16 @@ import { NotificationCenter } from "@/components/app/notification-center";
 import { CloseConfirmationDialog } from "@/components/app/close-confirmation-dialog";
 import { listen } from "@tauri-apps/api/event";
 import { useQueryClient } from "@tanstack/react-query";
+import { useDailyReward } from "@/features/achievement";
 
 function App() {
   const [currentPage, setCurrentPage] = useState<Page>("todos");
   const [currentFocusTodoId, setCurrentFocusTodoId] = useState<number | null>(null);
   const [showCloseDialog, setShowCloseDialog] = useState(false);
   const queryClient = useQueryClient();
+
+  // 每日启动奖励检查
+  useDailyReward();
 
   // 在 App 级别监听会话记录更新事件，确保无论在哪个页面都能接收到
   useEffect(() => {

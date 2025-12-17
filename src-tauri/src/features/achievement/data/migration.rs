@@ -60,3 +60,32 @@ impl MigrationTrait for AchievementMigration {
         Ok(())
     }
 }
+
+/// 第二次迁移：添加 last_daily_reward_date 字段
+#[derive(Debug, Clone, Copy)]
+pub struct AchievementMigration2;
+
+impl MigrationName for AchievementMigration2 {
+    fn name(&self) -> &str {
+        "m20241217_000002_add_daily_reward_date"
+    }
+}
+
+#[async_trait::async_trait]
+impl MigrationTrait for AchievementMigration2 {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        let db = manager.get_connection();
+        
+        // SQLite: 添加 last_daily_reward_date 列
+        db.execute_unprepared(
+            "ALTER TABLE user_stats ADD COLUMN last_daily_reward_date TEXT"
+        ).await.ok(); // 忽略错误（列可能已存在）
+
+        Ok(())
+    }
+
+    async fn down(&self, _manager: &SchemaManager) -> Result<(), DbErr> {
+        // SQLite 不支持 DROP COLUMN，所以这里不做任何操作
+        Ok(())
+    }
+}

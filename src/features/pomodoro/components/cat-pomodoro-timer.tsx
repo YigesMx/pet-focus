@@ -60,6 +60,7 @@ export function CatPomodoroTimer({ initialTodoId, onFocusStarted }: PomodoroTime
   const [pendingTodoIds, setPendingTodoIds] = useState<number[]>([])
   const [showMore, setShowMore] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false) // 一轮结束后等待用户确认
   
   // 时长控制
   const [focusDuration, setFocusDuration] = useState(adjustedTimes?.focusMinutes ?? 25)
@@ -163,23 +164,21 @@ export function CatPomodoroTimer({ initialTodoId, onFocusStarted }: PomodoroTime
     return Math.min(100, (elapsed / totalSeconds) * 100)
   }, [isRunning, totalSeconds, status?.remainingSeconds])
 
-  // 模式切换时自动继续
+  // 模式切换时暂停并等待用户确认新时长
   useEffect(() => {
-    if (!status || !isRunning || isPaused) return
+    if (!status) return
     const currentMode = status.mode
     const previousMode = previousModeRef.current
+    
+    // 检测模式切换（专注→休息 或 休息→专注）
     if (previousMode && previousMode !== "idle" && previousMode !== currentMode && currentMode !== "idle") {
-      const applyDuration = async () => {
-        if (currentMode === "focus") {
-          await saveAdjustedTimesMutation.mutateAsync({ focusMinutes: focusDuration })
-        } else {
-          await saveAdjustedTimesMutation.mutateAsync({ restMinutes: restDuration })
-        }
-      }
-      void applyDuration()
+      // 一轮结束，暂停并显示时间设置
+      setAwaitingConfirmation(true)
+      void pause()
     }
+    
     previousModeRef.current = currentMode
-  }, [status?.mode, isRunning, isPaused, focusDuration, restDuration, saveAdjustedTimesMutation])
+  }, [status?.mode, pause])
 
   const handleEditNote = () => {
     setNoteValue(displayNote ?? "")
@@ -228,8 +227,36 @@ export function CatPomodoroTimer({ initialTodoId, onFocusStarted }: PomodoroTime
       }
       
       await start()
+      setAwaitingConfirmation(false)
     } catch (error) {
       console.error("Failed to start pomodoro:", error)
+    }
+  }
+
+  // 确认继续下一轮（一轮结束后用户确认）
+  const handleConfirmContinue = async () => {
+    try {
+      // 根据当前模式保存对应时长
+      if (status?.mode === "focus") {
+        await saveAdjustedTimesMutation.mutateAsync({ focusMinutes: focusDuration })
+      } else {
+        await saveAdjustedTimesMutation.mutateAsync({ restMinutes: restDuration })
+      }
+      
+      const currentConfig = await invoke<{
+        focusMinutes: number
+        shortBreakMinutes: number
+        longBreakMinutes: number
+        longBreakInterval: number
+      }>("pomodoro_get_config")
+      await invoke("pomodoro_set_config", {
+        config: { ...currentConfig, focusMinutes: focusDuration, shortBreakMinutes: restDuration },
+      })
+      
+      setAwaitingConfirmation(false)
+      await resume()
+    } catch (error) {
+      console.error("Failed to continue:", error)
     }
   }
 
@@ -303,40 +330,38 @@ export function CatPomodoroTimer({ initialTodoId, onFocusStarted }: PomodoroTime
             </div>
           </div>
 
-          {/* 时长控制 + 关联设置区域 - 仅在未运行时显示 */}
-          {!isRunning && (
+          {/* 时长控制 + 关联设置区域 - 未运行或等待确认时显示 */}
+          {(!isRunning || awaitingConfirmation) && (
             <div className="px-4 py-3 space-y-3 border-y bg-muted/20">
+              {/* 等待确认提示 */}
+              {awaitingConfirmation && (
+                <div className="flex items-center justify-center gap-2 text-sm font-medium text-amber-600 dark:text-amber-400">
+                  <span>🎉</span>
+                  <span>{status?.mode === "focus" ? "休息结束！准备开始专注" : "专注结束！准备休息"}</span>
+                </div>
+              )}
+              
               {/* 时长控制 - 水平紧凑布局 */}
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-muted-foreground">🎯 专注</span>
-                    <span className="text-sm font-bold text-primary">{focusDuration}分</span>
-                  </div>
-                  <DurationSlider
-                    value={focusDuration}
-                    onChange={setFocusDuration}
-                    min={5}
-                    max={120}
-                    step={5}
-                    color="primary"
-                  />
-                </div>
+                <DurationSlider
+                  value={focusDuration}
+                  onChange={setFocusDuration}
+                  min={1}
+                  max={120}
+                  step={1}
+                  color="primary"
+                  label="🎯 专注"
+                />
                 
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-muted-foreground">☕ 休息</span>
-                    <span className="text-sm font-bold text-emerald-600">{restDuration}分</span>
-                  </div>
-                  <DurationSlider
-                    value={restDuration}
-                    onChange={setRestDuration}
-                    min={1}
-                    max={30}
-                    step={1}
-                    color="emerald"
-                  />
-                </div>
+                <DurationSlider
+                  value={restDuration}
+                  onChange={setRestDuration}
+                  min={1}
+                  max={30}
+                  step={1}
+                  color="emerald"
+                  label="☕ 休息"
+                />
               </div>
 
               {/* 关联待办 - 直接显示 */}
@@ -365,7 +390,21 @@ export function CatPomodoroTimer({ initialTodoId, onFocusStarted }: PomodoroTime
           <div className="px-4 py-4 space-y-2">
             {/* 主控制按钮 */}
             <div className="flex justify-center gap-3">
-              {!isRunning ? (
+              {awaitingConfirmation ? (
+                // 等待确认状态 - 显示确认继续按钮
+                <Button
+                  size="lg"
+                  className={cn(
+                    "h-12 px-10 text-base rounded-full shadow-lg hover:shadow-xl transition-all",
+                    status?.mode === "focus" ? "bg-primary" : "bg-emerald-500 hover:bg-emerald-600"
+                  )}
+                  onClick={handleConfirmContinue}
+                  disabled={isBusy}
+                >
+                  <Play className="size-5 mr-2" />
+                  {status?.mode === "focus" ? "开始专注" : "开始休息"}
+                </Button>
+              ) : !isRunning ? (
                 <Button
                   size="lg"
                   className="h-12 px-10 text-base rounded-full shadow-lg hover:shadow-xl transition-all"

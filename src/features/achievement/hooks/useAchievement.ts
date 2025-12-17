@@ -1,10 +1,12 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { useEffect } from "react"
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query"
+import { useEffect, useRef } from "react"
 import { listen } from "@tauri-apps/api/event"
+import { toast } from "sonner"
 import {
   getUserStats,
   listAchievements,
   listCoinTransactions,
+  claimDailyReward,
   type UserStats,
 } from "../api"
 
@@ -114,4 +116,43 @@ export function useAchievementProgress() {
   const total = achievements?.length ?? 0
   const unlocked = achievements?.filter((a) => a.unlocked).length ?? 0
   return { total, unlocked, percentage: total > 0 ? (unlocked / total) * 100 : 0 }
+}
+
+/**
+ * 每日启动奖励 Hook
+ * 在组件挂载时自动检查并领取每日奖励
+ */
+export function useDailyReward() {
+  const queryClient = useQueryClient()
+  const claimedRef = useRef(false)
+
+  const mutation = useMutation({
+    mutationFn: claimDailyReward,
+    onSuccess: (event) => {
+      if (event) {
+        // 领取成功，显示提示
+        toast.success(`🎁 每日启动奖励 +${event.delta} 金币`, {
+          description: "欢迎回来！每天打开应用都能获得奖励哦~",
+        })
+        // 刷新统计数据
+        queryClient.invalidateQueries({ queryKey: achievementKeys.stats() })
+        queryClient.invalidateQueries({ queryKey: achievementKeys.transactions() })
+      }
+    },
+  })
+
+  useEffect(() => {
+    // 只在首次挂载时检查
+    if (claimedRef.current) return
+    claimedRef.current = true
+
+    // 延迟一点执行，让应用先加载完
+    const timer = setTimeout(() => {
+      mutation.mutate()
+    }, 1000)
+
+    return () => clearTimeout(timer)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  return mutation
 }

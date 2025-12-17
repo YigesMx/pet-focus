@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 use tauri_plugin_shell::process::CommandChild;
 use tauri_plugin_shell::ShellExt;
 
@@ -24,11 +24,14 @@ impl PetManager {
             return Ok(()); // Already running
         }
 
+        // 使用 --no-taskbar 参数启动（如果 Godot 支持）
+        // 或者添加环境变量让 Godot 知道是被 Tauri 启动的
         let sidecar = self
             .app
             .shell()
             .sidecar("Lynx")
-            .map_err(|e| format!("Failed to create sidecar: {}", e))?;
+            .map_err(|e| format!("Failed to create sidecar: {}", e))?
+            .args(["--", "--launched-by-tauri"]);  // 传递标记参数
 
         let (mut rx, child) = sidecar
             .spawn()

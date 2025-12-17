@@ -29,6 +29,7 @@ pub async fn get_or_create_user_stats(db: &DatabaseConnection) -> Result<user_st
         streak_days: Set(0),
         max_streak_days: Set(0),
         last_focus_date: Set(None),
+        last_daily_reward_date: Set(None),
         created_at: Set(now),
         updated_at: Set(now),
     };
@@ -128,6 +129,44 @@ pub async fn reward_focus_complete(
         None,
     )
     .await
+}
+
+/// 检查并发放每日启动奖励
+/// 返回 Some(event) 如果今天还没领取，None 如果已领取
+pub async fn check_and_claim_daily_reward(
+    db: &DatabaseConnection,
+) -> Result<Option<CoinsChangedEvent>> {
+    let now = Utc::now();
+    let today = now.format("%Y-%m-%d").to_string();
+
+    let stats = get_or_create_user_stats(db).await?;
+
+    // 检查今天是否已经领取
+    if let Some(ref last_reward_date) = stats.last_daily_reward_date {
+        if last_reward_date == &today {
+            // 今天已经领取过了
+            return Ok(None);
+        }
+    }
+
+    // 发放每日奖励
+    let event = add_coins(
+        db,
+        coin_rules::DAILY_LOGIN_REWARD,
+        "daily_login",
+        "每日启动奖励",
+        None,
+        None,
+    )
+    .await?;
+
+    // 更新最后领取日期
+    let mut active: user_stats::ActiveModel = stats.into();
+    active.last_daily_reward_date = Set(Some(today));
+    active.updated_at = Set(now);
+    active.update(db).await?;
+
+    Ok(Some(event))
 }
 
 /// 更新专注统计（完成一次专注后调用）

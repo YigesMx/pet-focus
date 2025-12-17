@@ -10,6 +10,7 @@ import { ThemePreferenceSelector } from "@/features/settings/components/theme-pr
 import { ColorThemeSelector } from "@/features/settings/components/color-theme-selector"
 import { CloseBehaviorSelector } from "@/features/settings/components/close-behavior-selector"
 import { NotificationToggle } from "@/features/settings/components/notification-toggle"
+import { DebugClearDataButton } from "@/features/settings/components/debug-settings"
 import { ExternalApiToggle } from "@/features/webserver/components/external-api-toggle"
 import { useWebServerControl } from "@/features/webserver/hooks/useWebServerControl"
 import { PetControl } from "@/features/pet/components/pet-control"
@@ -76,22 +77,30 @@ export function SettingsPage() {
             </AccordionContent>
           </AccordionItem>
 
-          <AccordionItem value="external-api">
+          <AccordionItem value="debug">
             <AccordionTrigger>
-              <span className="text-base font-semibold">外部 API</span>
+              <span className="text-base font-semibold text-muted-foreground">调试选项</span>
             </AccordionTrigger>
             <AccordionContent>
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">启用或禁用外部 API 访问</p>
-                <ExternalApiToggle
-                  isRunning={isServerRunning}
-                  isBusy={isServerBusy}
-                  isPlatformSupported={isPlatformSupported}
-                  statusMessage={statusMessage}
-                  onToggle={(nextEnabled) => {
-                    void toggleApi(nextEnabled)
-                  }}
-                />
+              <div className="space-y-6">
+                <p className="text-sm text-muted-foreground">开发者调试功能，请谨慎使用</p>
+                
+                {/* 外部 API */}
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">外部 API 服务</div>
+                  <ExternalApiToggle
+                    isRunning={isServerRunning}
+                    isBusy={isServerBusy}
+                    isPlatformSupported={isPlatformSupported}
+                    statusMessage={statusMessage}
+                    onToggle={(nextEnabled) => {
+                      void toggleApi(nextEnabled)
+                    }}
+                  />
+                </div>
+                
+                {/* 清理数据 */}
+                <DebugClearDataButton />
               </div>
             </AccordionContent>
           </AccordionItem>

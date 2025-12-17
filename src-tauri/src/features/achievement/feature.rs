@@ -8,8 +8,6 @@ use crate::core::{AppState, Feature};
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 use crate::infrastructure::webserver::HandlerRegistry;
 
-use super::data::migration::AchievementMigration;
-
 /// 成就系统 Feature
 ///
 /// 管理用户成就、金币和统计数据
@@ -37,12 +35,20 @@ impl Feature for AchievementFeature {
             "achievement_get_coins",
             "achievement_list",
             "achievement_list_transactions",
+            "achievement_claim_daily_reward",
         ]
     }
 
     fn register_database(&self, registry: &mut crate::infrastructure::database::DatabaseRegistry) {
+        use super::data::migration::{AchievementMigration, AchievementMigration2};
+        
         registry.register_migration("achievement_migration", |manager| {
             let migration = AchievementMigration;
+            Box::pin(async move { migration.up(manager).await })
+        });
+        
+        registry.register_migration("achievement_migration_2", |manager| {
+            let migration = AchievementMigration2;
             Box::pin(async move { migration.up(manager).await })
         });
     }

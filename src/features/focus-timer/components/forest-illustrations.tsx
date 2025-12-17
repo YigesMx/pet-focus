@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from "react"
 import { cn } from "@/lib/utils"
 
 interface CatIllustrationProps {
@@ -270,7 +271,7 @@ export function ProgressRing({
 }
 
 /**
- * 时长滑动条 - 改进版，更灵敏
+ * 时长滑动条 - 改进版，带可编辑输入框
  */
 interface DurationSliderProps {
   value: number // 分钟
@@ -281,6 +282,7 @@ interface DurationSliderProps {
   disabled?: boolean
   className?: string
   color?: "primary" | "emerald"
+  label?: string
 }
 
 export function DurationSlider({
@@ -292,13 +294,104 @@ export function DurationSlider({
   disabled = false,
   className,
   color = "primary",
+  label,
 }: DurationSliderProps) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [inputValue, setInputValue] = useState(value.toString())
+  const inputRef = useRef<HTMLInputElement>(null)
+
   const percentage = ((value - min) / (max - min)) * 100
   const trackColor = color === "emerald" ? "bg-emerald-500" : "bg-primary"
   const thumbColor = color === "emerald" ? "bg-emerald-500" : "bg-primary"
+  const textColor = color === "emerald" ? "text-emerald-600" : "text-primary"
+
+  // 当外部值改变时，同步到输入框
+  useEffect(() => {
+    if (!isEditing) {
+      setInputValue(value.toString())
+    }
+  }, [value, isEditing])
+
+  const handleInputBlur = () => {
+    setIsEditing(false)
+    let newValue = parseInt(inputValue, 10)
+    if (isNaN(newValue)) {
+      newValue = value
+    } else {
+      // 限制在 min-max 范围内
+      newValue = Math.max(min, Math.min(max, newValue))
+      // 对齐到步进值
+      newValue = Math.round(newValue / step) * step
+      newValue = Math.max(min, Math.min(max, newValue))
+    }
+    setInputValue(newValue.toString())
+    if (newValue !== value) {
+      onChange(newValue)
+    }
+  }
+
+  const handleInputKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      inputRef.current?.blur()
+    } else if (e.key === "Escape") {
+      setInputValue(value.toString())
+      setIsEditing(false)
+    }
+  }
+
+  const handleValueClick = () => {
+    if (!disabled) {
+      setIsEditing(true)
+      setTimeout(() => {
+        inputRef.current?.select()
+      }, 0)
+    }
+  }
 
   return (
     <div className={cn("w-full select-none", className)}>
+      {/* 标题和数值 */}
+      {label && (
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-xs font-medium text-muted-foreground">{label}</span>
+          {isEditing ? (
+            <div className="flex items-center gap-1">
+              <input
+                ref={inputRef}
+                type="number"
+                min={min}
+                max={max}
+                step={step}
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onBlur={handleInputBlur}
+                onKeyDown={handleInputKeyDown}
+                className={cn(
+                  "w-12 h-6 text-sm font-bold text-center border rounded",
+                  textColor,
+                  "focus:outline-none focus:ring-2 focus:ring-primary/50"
+                )}
+                autoFocus
+              />
+              <span className="text-xs text-muted-foreground">分</span>
+            </div>
+          ) : (
+            <button
+              onClick={handleValueClick}
+              disabled={disabled}
+              className={cn(
+                "text-sm font-bold px-2 py-0.5 rounded hover:bg-muted/50 transition-colors",
+                textColor,
+                disabled && "opacity-50 cursor-not-allowed"
+              )}
+              title="点击编辑"
+            >
+              {value}分
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="relative h-8 flex items-center">
         {/* 滑动条轨道 */}
         <div className="absolute inset-x-0 h-2 bg-muted rounded-full overflow-hidden">

@@ -1,3 +1,4 @@
+use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use tauri::State;
 
 use super::notifications;
@@ -144,4 +145,54 @@ pub async fn set_notification_settings(
     state.notification().set_notification_enabled(enabled);
     
     Ok(NotificationSettings { enabled })
+}
+
+// ============================================================================
+// Debug: 清理所有用户数据
+// ============================================================================
+
+/// 清理所有用户数据（Debug功能）
+/// 删除所有用户生成的数据，包括：
+/// - 专注记录、会话
+/// - 待办事项
+/// - 标签
+/// - 成就、金币、统计数据
+/// 保留设置数据
+#[tauri::command]
+pub async fn debug_clear_all_user_data(state: State<'_, AppState>) -> Result<String, String> {
+    let db = state.db();
+    
+    // 需要清理的表（按依赖顺序，先删除有外键引用的表）
+    let tables_to_clear = [
+        "session_tags",        // 依赖 session 和 tag
+        "task_tags",           // 依赖 todo 和 tag  
+        "session_todo_links",  // 依赖 session 和 todo
+        "pomodoro_records",    // 依赖 session
+        "pomodoro_sessions",   // 主表
+        "todos",               // 主表
+        "tags",                // 主表
+        "coin_transactions",   // 依赖 user_stats
+        "achievements",        // 主表
+        "user_stats",          // 主表
+    ];
+    
+    let mut cleared_tables = Vec::new();
+    
+    for table in &tables_to_clear {
+        let sql = format!("DELETE FROM {}", table);
+        match db.execute(Statement::from_string(DbBackend::Sqlite, sql)).await {
+            Ok(_) => {
+                cleared_tables.push(*table);
+            }
+            Err(e) => {
+                // 表可能不存在，忽略错误
+                eprintln!("[debug_clear_all_user_data] Warning: Failed to clear table {}: {}", table, e);
+            }
+        }
+    }
+    
+    let message = format!("已清理 {} 个数据表: {:?}", cleared_tables.len(), cleared_tables);
+    println!("[debug_clear_all_user_data] {}", message);
+    
+    Ok(message)
 }

@@ -414,7 +414,7 @@ async fn persist_finished_phase(state_ptr: &Arc<Mutex<State>>, app: &AppHandle<W
         // 如果是专注模式完成，发放金币奖励
         if matches!(kind, PomodoroSessionKind::Focus) {
             let focus_seconds = (end_at - start_at).num_seconds();
-            if let Err(e) = process_focus_complete_rewards(&db, state.notification(), focus_seconds, Some(record.id)).await {
+            if let Err(e) = process_focus_complete_rewards(&db, state.notification(), app, focus_seconds, Some(record.id)).await {
                 eprintln!("Failed to process focus complete rewards: {}", e);
             }
         }
@@ -482,6 +482,7 @@ fn format_mode(mode: PomodoroMode) -> &'static str {
 async fn process_focus_complete_rewards(
     db: &sea_orm::DatabaseConnection,
     notifier: &NotificationManager,
+    app: &AppHandle<Wry>,
     focus_seconds: i64,
     record_id: Option<i32>,
 ) -> Result<()> {
@@ -496,11 +497,14 @@ async fn process_focus_complete_rewards(
     // 2. 发放金币奖励
     let coins_event = achievement_service::reward_focus_complete(db, focus_seconds, record_id).await?;
 
-    // 3. 广播金币变化事件（给 Godot 宠物等外部客户端）
+    // 3. 广播金币变化事件
+    // 3a. WebSocket（给 Godot 宠物等外部客户端）
     notifier.send_websocket_event(
         WS_EVENT_COINS_CHANGED.to_string(),
         serde_json::to_value(&coins_event).unwrap_or_default(),
     );
+    // 3b. Tauri 事件（给前端 React）
+    let _ = app.emit("achievement-coins-changed", &coins_event);
 
     println!(
         "专注完成，获得 {} 金币，当前总计 {} 金币",
@@ -512,20 +516,26 @@ async fn process_focus_complete_rewards(
 
     for achievement in &unlocked_achievements {
         // 广播成就解锁事件
+        // WebSocket
         notifier.send_websocket_event(
             WS_EVENT_ACHIEVEMENT_UNLOCKED.to_string(),
             serde_json::to_value(achievement).unwrap_or_default(),
         );
+        // Tauri 事件
+        let _ = app.emit("achievement-unlocked", achievement);
 
         println!("解锁成就: {} - {}", achievement.name, achievement.description);
     }
 
     // 5. 广播统计数据更新事件
     if let Ok(stats) = achievement_service::get_user_stats(db).await {
+        // WebSocket
         notifier.send_websocket_event(
             WS_EVENT_STATS_UPDATED.to_string(),
             serde_json::to_value(&stats).unwrap_or_default(),
         );
+        // Tauri 事件
+        let _ = app.emit("achievement-stats-updated", &stats);
     }
 
     Ok(())
