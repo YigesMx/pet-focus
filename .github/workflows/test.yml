@@ -50,34 +50,34 @@ jobs:
           name: codecov-umbrella
           fail_ci_if_error: false
 
-  test-coverage:
-    name: Test Coverage Report
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+  # test-coverage:
+  #   name: Test Coverage Report
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
+  #     - uses: pnpm/action-setup@v4
+  #       with:
+  #         version: 9
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: 20
+  #         cache: pnpm
+  #         cache-dependency-path: pnpm-lock.yaml
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+  #     - name: Install dependencies
+  #       run: pnpm install --frozen-lockfile
 
-      - name: Generate coverage report
-        run: pnpm test:coverage
+  #     - name: Generate coverage report
+  #       run: pnpm test:coverage
 
-      - name: Archive coverage reports
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: coverage/
-          retention-days: 30
+  #     - name: Archive coverage reports
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: coverage-report
+  #         path: coverage/
+  #         retention-days: 30
 
   lint-and-type-check:
     name: Lint & Type Check
