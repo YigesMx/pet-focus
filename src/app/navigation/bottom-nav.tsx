@@ -1,5 +1,5 @@
 import { type ReactNode } from "react"
-import { CheckCircle2, Clock, BarChart3, Settings } from "lucide-react"
+import { CheckCircle2, Clock, BarChart3, Trophy, Settings } from "lucide-react"
 
 import type { Page } from "@/app/pages"
 
@@ -7,6 +7,7 @@ const NAV_ITEMS: Array<{ page: Page; label: string; icon: ReactNode }> = [
   { page: "todos", label: "待办", icon: <CheckCircle2 className="size-5" aria-hidden="true" /> },
   { page: "focus", label: "专注", icon: <Clock className="size-5" aria-hidden="true" /> },
   { page: "stats", label: "统计", icon: <BarChart3 className="size-5" aria-hidden="true" /> },
+  { page: "achievement", label: "成就", icon: <Trophy className="size-5" aria-hidden="true" /> },
   { page: "settings", label: "设置", icon: <Settings className="size-5" aria-hidden="true" /> },
 ]
 

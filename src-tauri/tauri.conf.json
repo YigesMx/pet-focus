@@ -13,8 +13,8 @@
     "windows": [
       {
         "title": "pet-focus",
-        "width": 450,
-        "height": 600
+        "width": 520,
+        "height": 780
       }
     ],
     "security": {

@@ -1,3 +1,4 @@
+pub mod achievement;
 #[cfg(target_os = "windows")]
 pub mod pet;
 pub mod pomodoro;

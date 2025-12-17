@@ -1,4 +1,4 @@
-import { PomodoroTimer } from "@/features/pomodoro/components/pomodoro-timer"
+import { CatPomodoroTimer } from "@/features/pomodoro/components/cat-pomodoro-timer"
 
 interface FocusPageProps {
   focusTodoId?: number | null
@@ -7,5 +7,5 @@ interface FocusPageProps {
 }
 
 export function FocusPage({ focusTodoId, onFocusStarted }: FocusPageProps) {
-  return <PomodoroTimer initialTodoId={focusTodoId} onFocusStarted={onFocusStarted} />
+  return <CatPomodoroTimer initialTodoId={focusTodoId} onFocusStarted={onFocusStarted} />
 }

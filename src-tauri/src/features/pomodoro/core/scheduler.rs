@@ -395,10 +395,10 @@ async fn persist_finished_phase(state_ptr: &Arc<Mutex<State>>, app: &AppHandle<W
         let active_session = pomo_service::get_or_create_active_session(&db, None).await?;
 
         // 创建 record 并关联到 session
-        pomo_service::create_record_with_session(
+        let record = pomo_service::create_record_with_session(
             &db,
             active_session.id,
-            kind,
+            kind.clone(),
             PomodoroSessionStatus::Completed,
             round,
             start_at,
@@ -410,6 +410,14 @@ async fn persist_finished_phase(state_ptr: &Arc<Mutex<State>>, app: &AppHandle<W
         // 发送会话记录更新事件
         println!("发送会话记录事件: {}", POMODORO_SESSION_RECORDED_EVENT);
         let _ = app.emit(POMODORO_SESSION_RECORDED_EVENT, ());
+
+        // 如果是专注模式完成，发放金币奖励
+        if matches!(kind, PomodoroSessionKind::Focus) {
+            let focus_seconds = (end_at - start_at).num_seconds();
+            if let Err(e) = process_focus_complete_rewards(&db, state.notification(), focus_seconds, Some(record.id)).await {
+                eprintln!("Failed to process focus complete rewards: {}", e);
+            }
+        }
     }
     Ok(())
 }
@@ -468,6 +476,59 @@ fn format_mode(mode: PomodoroMode) -> &'static str {
         PomodoroMode::LongBreak => "long_break",
         PomodoroMode::Idle => "idle",
     }
+}
+
+/// 处理专注完成后的金币奖励和成就检查
+async fn process_focus_complete_rewards(
+    db: &sea_orm::DatabaseConnection,
+    notifier: &NotificationManager,
+    focus_seconds: i64,
+    record_id: Option<i32>,
+) -> Result<()> {
+    use crate::features::achievement::api::handlers::{
+        WS_EVENT_ACHIEVEMENT_UNLOCKED, WS_EVENT_COINS_CHANGED, WS_EVENT_STATS_UPDATED,
+    };
+    use crate::features::achievement::core::service as achievement_service;
+
+    // 1. 更新专注统计
+    achievement_service::update_focus_stats(db, focus_seconds).await?;
+
+    // 2. 发放金币奖励
+    let coins_event = achievement_service::reward_focus_complete(db, focus_seconds, record_id).await?;
+
+    // 3. 广播金币变化事件（给 Godot 宠物等外部客户端）
+    notifier.send_websocket_event(
+        WS_EVENT_COINS_CHANGED.to_string(),
+        serde_json::to_value(&coins_event).unwrap_or_default(),
+    );
+
+    println!(
+        "专注完成，获得 {} 金币，当前总计 {} 金币",
+        coins_event.delta, coins_event.coins
+    );
+
+    // 4. 检查并解锁成就
+    let unlocked_achievements = achievement_service::check_and_unlock_achievements(db).await?;
+
+    for achievement in &unlocked_achievements {
+        // 广播成就解锁事件
+        notifier.send_websocket_event(
+            WS_EVENT_ACHIEVEMENT_UNLOCKED.to_string(),
+            serde_json::to_value(achievement).unwrap_or_default(),
+        );
+
+        println!("解锁成就: {} - {}", achievement.name, achievement.description);
+    }
+
+    // 5. 广播统计数据更新事件
+    if let Ok(stats) = achievement_service::get_user_stats(db).await {
+        notifier.send_websocket_event(
+            WS_EVENT_STATS_UPDATED.to_string(),
+            serde_json::to_value(&stats).unwrap_or_default(),
+        );
+    }
+
+    Ok(())
 }
 
 #[cfg(not(any(target_os = "android", target_os = "ios")))]

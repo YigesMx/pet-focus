@@ -3,7 +3,7 @@ import "./App.css";
 import { useEffect, useState } from "react";
 
 import { BottomNav } from "@/app/navigation/bottom-nav";
-import { FocusPage, SettingsPage, StatsPage, TodosPage, type Page } from "@/app/pages";
+import { AchievementPage, FocusPage, SettingsPage, StatsPage, TodosPage, type Page } from "@/app/pages";
 import { NotificationCenter } from "@/components/app/notification-center";
 import { CloseConfirmationDialog } from "@/components/app/close-confirmation-dialog";
 import { listen } from "@tauri-apps/api/event";
@@ -75,6 +75,8 @@ function App() {
         );
       case "stats":
         return <StatsPage />;
+      case "achievement":
+        return <AchievementPage />;
       case "settings":
         return <SettingsPage />;
       default:
