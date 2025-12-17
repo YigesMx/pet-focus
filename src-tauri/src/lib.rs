@@ -10,6 +10,7 @@ use core::Feature;
 #[cfg(target_os = "windows")]
 use features::pet::PetFeature;
 use features::{
+    achievement::AchievementFeature,
     pomodoro::PomodoroFeature, settings::SettingsFeature, tag::TagFeature, todo::TodoFeature,
     window::WindowFeature,
 };
@@ -25,6 +26,7 @@ fn init_features() -> Vec<Arc<dyn Feature>> {
         SettingsFeature::new(),
         PomodoroFeature::new(),
         TagFeature::new(),
+        AchievementFeature::new(),
         Arc::new(WindowFeature::new()),
     ];
 

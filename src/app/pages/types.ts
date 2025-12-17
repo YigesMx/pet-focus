@@ -1,1 +1,1 @@
-export type Page = "todos" | "focus" | "stats" | "settings"
+export type Page = "todos" | "focus" | "stats" | "achievement" | "settings"

@@ -842,6 +842,113 @@ type WsMessage =
 
 ---
 
+### 订阅 Achievement 事件
+
+Pet Focus 成就系统会在以下情况推送事件：
+
+#### 金币变化事件
+
+**1. 订阅频道**:
+```json
+{
+  "type": "listen",
+  "body": {
+    "channel": "achievement.coins_changed"
+  }
+}
+```
+
+**2. 接收事件**:
+```json
+{
+  "type": "event",
+  "body": {
+    "channel": "achievement.coins_changed",
+    "data": {
+      "coins": 150,
+      "delta": 30,
+      "transactionType": "focus_complete",
+      "description": "专注25分钟奖励"
+    }
+  }
+}
+```
+
+**事件字段说明**:
+- `coins` (number): 当前金币总数
+- `delta` (number): 本次变化量
+- `transactionType` (string): 交易类型 - `"focus_complete"` | `"achievement"` | `"spend"` | `"bonus"`
+- `description` (string): 交易描述
+
+#### 成就解锁事件
+
+**1. 订阅频道**:
+```json
+{
+  "type": "listen",
+  "body": {
+    "channel": "achievement.unlocked"
+  }
+}
+```
+
+**2. 接收事件**:
+```json
+{
+  "type": "event",
+  "body": {
+    "channel": "achievement.unlocked",
+    "data": {
+      "code": "first_focus",
+      "name": "初次专注",
+      "description": "完成第一次专注",
+      "icon": "🎯",
+      "rewardCoins": 10
+    }
+  }
+}
+```
+
+**事件字段说明**:
+- `code` (string): 成就代码
+- `name` (string): 成就名称
+- `description` (string): 成就描述
+- `icon` (string): 成就图标
+- `rewardCoins` (number): 奖励金币数
+
+#### 统计数据更新事件
+
+**1. 订阅频道**:
+```json
+{
+  "type": "listen",
+  "body": {
+    "channel": "achievement.stats_updated"
+  }
+}
+```
+
+**2. 接收事件**:
+```json
+{
+  "type": "event",
+  "body": {
+    "channel": "achievement.stats_updated",
+    "data": {
+      "coins": 150,
+      "totalCoinsEarned": 200,
+      "totalCoinsSpent": 50,
+      "totalFocusSeconds": 3600,
+      "totalFocusCount": 5,
+      "streakDays": 3,
+      "maxStreakDays": 7
+    }
+  }
+}
+```
+
+---
+
 ## 错误处理
 
 ### 错误响应格式

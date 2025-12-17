@@ -72,6 +72,11 @@ pub fn get_handler() -> impl Fn(Invoke<tauri::Wry>) -> bool + Send + Sync + 'sta
         crate::features::pomodoro::api::commands::session_todo_link_add,
         crate::features::pomodoro::api::commands::session_todo_link_remove,
         crate::features::pomodoro::api::commands::session_todo_link_reorder,
+        // Achievement Feature Commands
+        crate::features::achievement::api::commands::achievement_get_stats,
+        crate::features::achievement::api::commands::achievement_get_coins,
+        crate::features::achievement::api::commands::achievement_list,
+        crate::features::achievement::api::commands::achievement_list_transactions,
         // WebServer Commands (Desktop only)
         #[cfg(not(any(target_os = "android", target_os = "ios")))]
         crate::infrastructure::webserver::api::commands::start_web_server,
